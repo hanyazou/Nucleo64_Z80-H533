@@ -61,6 +61,7 @@ void Error_Handler(void);
 #define USB_FS_PWR_EN_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
+extern HCD_HandleTypeDef hhcd_USB_DRD_FS;
 
 /* USER CODE END Private defines */
 

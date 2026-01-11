@@ -22,6 +22,11 @@
 #include "app_azure_rtos.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "main.h"
+#include "ux_api.h"
+#include "ux_hcd_stm32.h"
+
+#include <stdio.h>
 
 /* USER CODE END Includes */
 
@@ -169,6 +174,20 @@ VOID tx_application_define(VOID *first_unused_memory)
       /* USER CODE END  MX_USBX_Host_Init_Error */
     }
     /* USER CODE BEGIN  MX_USBX_Host_Init_Success */
+    UINT status = ux_host_stack_hcd_register(
+      (UCHAR *)"HCD_FS",
+      ux_hcd_stm32_initialize,
+      USB_DRD_FS,
+      (ULONG)&hhcd_USB_DRD_FS);
+    if (status != UX_SUCCESS) {
+      printf("ux_host_stack_hcd_register() failed\r\n");
+      Error_Handler();
+    }
+    if (HAL_HCD_Start(&hhcd_USB_DRD_FS) != HAL_OK) {
+      printf("HAL_HCD_Start() failed\r\n");
+      Error_Handler();
+    }
+    printf("HAL_HCD_Start() succeeded\r\n");
 
     /* USER CODE END  MX_USBX_Host_Init_Success */
 
