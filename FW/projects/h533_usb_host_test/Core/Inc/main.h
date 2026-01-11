@@ -57,6 +57,8 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define USB_FS_PWR_EN_Pin GPIO_PIN_4
+#define USB_FS_PWR_EN_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
 
