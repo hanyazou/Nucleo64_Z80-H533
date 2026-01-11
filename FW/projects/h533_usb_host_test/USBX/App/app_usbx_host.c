@@ -166,6 +166,7 @@ UINT ux_host_event_callback(ULONG event, UX_HOST_CLASS *current_class, VOID *cur
     case UX_DEVICE_INSERTION:
 
       /* USER CODE BEGIN UX_DEVICE_INSERTION */
+      printf("%s: UX_DEVICE_INSERTION\r\n", __func__);
 
       /* USER CODE END UX_DEVICE_INSERTION */
 
@@ -174,6 +175,7 @@ UINT ux_host_event_callback(ULONG event, UX_HOST_CLASS *current_class, VOID *cur
     case UX_DEVICE_REMOVAL:
 
       /* USER CODE BEGIN UX_DEVICE_REMOVAL */
+      printf("%s: UX_DEVICE_REMOVAL\r\n", __func__);
 
       /* USER CODE END UX_DEVICE_REMOVAL */
 
@@ -182,6 +184,7 @@ UINT ux_host_event_callback(ULONG event, UX_HOST_CLASS *current_class, VOID *cur
     case UX_DEVICE_CONNECTION:
 
       /* USER CODE BEGIN UX_DEVICE_CONNECTION */
+      printf("%s: UX_DEVICE_CONNECTION\r\n", __func__);
 
       /* USER CODE END UX_DEVICE_CONNECTION */
 
@@ -190,6 +193,7 @@ UINT ux_host_event_callback(ULONG event, UX_HOST_CLASS *current_class, VOID *cur
     case UX_DEVICE_DISCONNECTION:
 
       /* USER CODE BEGIN UX_DEVICE_DISCONNECTION */
+      printf("%s: UX_DEVICE_DISCONNECTION\r\n", __func__);
 
       /* USER CODE END UX_DEVICE_DISCONNECTION */
 
@@ -198,6 +202,7 @@ UINT ux_host_event_callback(ULONG event, UX_HOST_CLASS *current_class, VOID *cur
     default:
 
       /* USER CODE BEGIN EVENT_DEFAULT */
+      printf("%s: unknown event\r\n", __func__);
 
       /* USER CODE END EVENT_DEFAULT */
 
@@ -231,6 +236,7 @@ VOID ux_host_error_callback(UINT system_level, UINT system_context, UINT error_c
     case UX_DEVICE_ENUMERATION_FAILURE:
 
       /* USER CODE BEGIN UX_DEVICE_ENUMERATION_FAILURE */
+      printf("%s: UX_DEVICE_ENUMERATION_FAILURE\r\n", __func__);
 
       /* USER CODE END UX_DEVICE_ENUMERATION_FAILURE */
 
@@ -239,6 +245,7 @@ VOID ux_host_error_callback(UINT system_level, UINT system_context, UINT error_c
     case  UX_NO_DEVICE_CONNECTED:
 
       /* USER CODE BEGIN UX_NO_DEVICE_CONNECTED */
+      printf("%s: UX_NO_DEVICE_CONNECTED\r\n", __func__);
 
       /* USER CODE END UX_NO_DEVICE_CONNECTED */
 
@@ -254,7 +261,20 @@ VOID ux_host_error_callback(UINT system_level, UINT system_context, UINT error_c
   }
 
   /* USER CODE BEGIN ux_host_error_callback1 */
-
+  switch (error_code)
+  {
+    case UX_MEMORY_CORRUPTED:
+      printf("%s: UX_MEMORY_CORRUPTED\r\n", __func__);
+      break;
+    case UX_MEMORY_INSUFFICIENT:
+      printf("%s: UX_MEMORY_INSUFFICIENT\r\n", __func__);
+      break;
+    case TX_WAIT_ERROR:
+      break;
+    default:
+      printf("%s: unknown error\r\n", __func__);
+      break;
+  }
   /* USER CODE END ux_host_error_callback1 */
 }
 /* USER CODE BEGIN 1 */
