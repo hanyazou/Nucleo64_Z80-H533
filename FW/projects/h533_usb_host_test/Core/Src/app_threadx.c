@@ -23,6 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <msc_test/msc_test.h>
 
 /* USER CODE END Includes */
 
@@ -33,6 +34,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define MSC_TEST_THREAD_STACK_SIZE   (2048u)
+#define MSC_TEST_THREAD_PRIORITY     (20u)
 
 /* USER CODE END PD */
 
@@ -43,6 +46,8 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
+static TX_THREAD msc_test_thread;
+static ULONG msc_test_thread_stack[MSC_TEST_THREAD_STACK_SIZE / sizeof(ULONG)];
 
 /* USER CODE END PV */
 
@@ -63,6 +68,18 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
 
   /* USER CODE END App_ThreadX_MEM_POOL */
   /* USER CODE BEGIN App_ThreadX_Init */
+ msc_test_rtos_init();
+ tx_thread_create(&msc_test_thread,
+                   (CHAR *)"msc_test",
+                   msc_test_thread_entry,
+                   0,
+                   msc_test_thread_stack,
+                   sizeof(msc_test_thread_stack),
+                   MSC_TEST_THREAD_PRIORITY,
+                   MSC_TEST_THREAD_PRIORITY,
+                   TX_NO_TIME_SLICE,
+                   TX_AUTO_START);
+
   /* USER CODE END App_ThreadX_Init */
 
   return ret;

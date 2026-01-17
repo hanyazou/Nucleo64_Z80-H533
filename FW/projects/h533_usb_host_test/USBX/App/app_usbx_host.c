@@ -20,9 +20,11 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "app_usbx_host.h"
+#include "ux_api.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <msc_test/msc_test.h>
 
 /* USER CODE END Includes */
 
@@ -52,6 +54,7 @@ static VOID app_ux_host_thread_entry(ULONG thread_input);
 static UINT ux_host_event_callback(ULONG event, UX_HOST_CLASS *current_class, VOID *current_instance);
 static VOID ux_host_error_callback(UINT system_level, UINT system_context, UINT error_code);
 /* USER CODE BEGIN PFP */
+static void print_device_desc(const UX_DEVICE *dev);
 
 /* USER CODE END PFP */
 
@@ -185,6 +188,8 @@ UINT ux_host_event_callback(ULONG event, UX_HOST_CLASS *current_class, VOID *cur
 
       /* USER CODE BEGIN UX_DEVICE_CONNECTION */
       printf("%s: UX_DEVICE_CONNECTION\r\n", __func__);
+      print_device_desc((UX_DEVICE *)current_instance);
+      msc_test_notify(current_instance);
 
       /* USER CODE END UX_DEVICE_CONNECTION */
 
@@ -194,6 +199,7 @@ UINT ux_host_event_callback(ULONG event, UX_HOST_CLASS *current_class, VOID *cur
 
       /* USER CODE BEGIN UX_DEVICE_DISCONNECTION */
       printf("%s: UX_DEVICE_DISCONNECTION\r\n", __func__);
+      msc_test_notify(NULL);
 
       /* USER CODE END UX_DEVICE_DISCONNECTION */
 
@@ -271,6 +277,15 @@ VOID ux_host_error_callback(UINT system_level, UINT system_context, UINT error_c
       break;
     case TX_WAIT_ERROR:
       break;
+    case UX_DEVICE_ENUMERATION_FAILURE:
+      printf("%s: UX_DEVICE_ENUMERATION_FAILURE\r\n", __func__);
+      break;
+    case UX_ENDPOINT_HANDLE_UNKNOWN:
+      printf("%s: UX_ENDPOINT_HANDLE_UNKNOWN\r\n", __func__);
+      break;
+    case UX_HOST_CLASS_PROTOCOL_ERROR:
+      printf("%s: UX_HOST_CLASS_PROTOCOL_ERROR\r\n", __func__);
+      break;
     default:
       printf("%s: unknown error\r\n", __func__);
       break;
@@ -278,5 +293,19 @@ VOID ux_host_error_callback(UINT system_level, UINT system_context, UINT error_c
   /* USER CODE END ux_host_error_callback1 */
 }
 /* USER CODE BEGIN 1 */
+static void print_device_desc(const UX_DEVICE *dev)
+{
+    const UX_DEVICE_DESCRIPTOR *d = &dev->ux_device_descriptor;
+
+    printf("Device Descriptor:\r\n");
+    printf("  VID: %04x\r\n", d->idVendor);
+    printf("  PID: %04x\r\n", d->idProduct);
+    printf("  bcdUSB: %04x\r\n", d->bcdUSB);
+    printf("  bDeviceClass/Sub/Prot: %02x/%02x/%02x\r\n",
+           d->bDeviceClass, d->bDeviceSubClass, d->bDeviceProtocol);
+    printf("  bMaxPacketSize0: %u\r\n", d->bMaxPacketSize0);
+    printf("  iMfr/iProd/iSN: %u/%u/%u\r\n",
+           d->iManufacturer, d->iProduct, d->iSerialNumber);
+}
 
 /* USER CODE END 1 */
