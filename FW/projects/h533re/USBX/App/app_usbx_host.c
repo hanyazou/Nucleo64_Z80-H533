@@ -68,6 +68,7 @@ UINT MX_USBX_Host_Init(VOID *memory_ptr)
   TX_BYTE_POOL *byte_pool = (TX_BYTE_POOL*)memory_ptr;
 
   /* USER CODE BEGIN MX_USBX_Host_Init0 */
+  MX_USB_HCD_Init();
 
   /* USER CODE END MX_USBX_Host_Init0 */
 

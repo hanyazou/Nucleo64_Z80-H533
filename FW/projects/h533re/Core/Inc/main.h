@@ -138,6 +138,7 @@ void MX_USB_HCD_Init(void);
 #define Z80_RD_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
+extern HCD_HandleTypeDef hhcd_USB_DRD_FS;
 
 /* USER CODE END Private defines */
 
