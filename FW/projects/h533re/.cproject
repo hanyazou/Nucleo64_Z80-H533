@@ -78,6 +78,7 @@
 									<listOptionValue builtIn="false" value="../Middlewares/ST/usbx/common/usbx_stm32_host_controllers"/>
 									<listOptionValue builtIn="false" value="../Middlewares/ST/usbx/common/usbx_host_classes/inc"/>
 									<listOptionValue builtIn="false" value="../../../src"/>
+									<listOptionValue builtIn="false" value="../../../roms"/>
 								</option>
 								<inputType id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c.1952326554" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c"/>
 							</tool>

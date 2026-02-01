@@ -25,8 +25,6 @@
 #include "main.h"
 #include "core_cm33.h"
 
-#include <unistd.h>
-
 #define RX_BUF_SIZE 128
 
 static UART_HandleTypeDef *g_huart;

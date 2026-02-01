@@ -1,25 +1,50 @@
 /*
- * board_test.c
+ * Copyright (c) 2024-2026 @hanyazou
  *
- *  Created on: Mar 25, 2024
- *      Author: hanyazou
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+ * LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
 #include "main.h"
-#include "board_test.h"
+#include "util.h"
+#include "z80.h"
 
 #include <stdio.h>
 #include <stdint.h>
+#include <unistd.h>
 
 #define CAT(x, y) _CAT(x, y)
 #define _CAT(x, y) x ## y
 #define set_pin(pin, v) ((v) ? (CAT(pin,_GPIO_Port)->ODR |= CAT(pin,_Pin)) : \
                          (CAT(pin,_GPIO_Port)->ODR &= ~CAT(pin,_Pin)))
 #define get_pin(pin) ((CAT(pin,_GPIO_Port)->IDR & CAT(pin,_Pin)) ? 1 : 0)
+
+/* MODER: 2 bits per pin, field = [2n+1:2n].
+* GPIO_PIN_x is 1-hot (1u<<n), so use ctz() to get pin index.
+* Intended for compile-time constant pin masks (non-zero, 1-hot).
+*/
+#define MODER_FIELD_LSB(m) (1u << (__builtin_ctz((uint32_t)(m)) * 2u))
+#define MODER_FIELD_MASK(m) (MODER_FIELD_LSB(m) * 3u)
 #define set_pin_dir(pin, v) \
     ((v) ? \
-     (CAT(pin,_GPIO_Port)->MODER &= ~((CAT(pin,_Pin))*(CAT(pin,_Pin))*3)) : \
-     (CAT(pin,_GPIO_Port)->MODER |=  ((CAT(pin,_Pin))*(CAT(pin,_Pin))  )))
+     (CAT(pin,_GPIO_Port)->MODER &= ~MODER_FIELD_MASK(CAT(pin,_Pin))) : \
+     (CAT(pin,_GPIO_Port)->MODER |= MODER_FIELD_LSB(CAT(pin,_Pin))))
 
 typedef uint8_t __bit;
 
@@ -31,20 +56,20 @@ static inline void set_mask32(volatile uint32_t *r, uint32_t v, uint32_t m) {
     *r = (*r & ~m) | (v & m);
 }
 
-static uint8_t data_pins(void) { return (uint8_t)(GPIOB->IDR >> 8); }
-static void set_data_pins(uint8_t v) { GPIOB->ODR = ((GPIOB->ODR & 0xff) | ((uint16_t)(v) << 8)); }
+static uint8_t data_pins(void) { return (uint8_t)(GPIOB->IDR & 0x00ff); }
+static void set_data_pins(uint8_t v) { GPIOB->ODR = ((GPIOB->ODR & 0xff00) | ((uint16_t)(v))); }
 static void set_data_dir(uint8_t v) {
-    GPIOB->MODER = ((GPIOB->MODER & 0x0000ffff) | ((v) ? 0 : 0x55550000));
+    GPIOB->MODER = ((GPIOB->MODER & 0xffff0000) | ((v) ? 0 : 0x00005555));
 }
 static uint16_t addr_pins(void) {
-    return (uint16_t)(((GPIOA->IDR & 0x0700) << 5) | (GPIOC->IDR & 0x1fff));
+    return (uint16_t)((GPIOB->IDR & 0xe000) | (GPIOC->IDR & 0x1fff));
 }
 static void set_addr_pins(uint16_t v) {
-    set_mask32(&GPIOA->ODR, v >> 5, 0x0700);  // PA8 ~ PA10
-    set_mask32(&GPIOC->ODR, v     , 0x1fff);  // PC0 ~ PC12
+    set_mask32(&GPIOB->ODR, v, 0xe000);  // PB13 ~ PB15
+    set_mask32(&GPIOC->ODR, v, 0x1fff);  // PC0 ~ PC12
 }
 static void set_addr_dir(uint8_t v) {
-    set_mask32(&GPIOA->MODER, v ? 0UL : 0x55555555UL, 0x003f0000);  // PA8 ~ PA10
+    set_mask32(&GPIOB->MODER, v ? 0UL : 0x55555555UL, 0xfc000000);  // PB13 ~ PA15
     set_mask32(&GPIOC->MODER, v ? 0UL : 0x55555555UL, 0x03ffffff);  // PC0 ~ PC12
 }
 
@@ -103,27 +128,50 @@ static void bus_master(int enable)
 extern size_t rom_size;
 extern const uint8_t rom[];
 
-void board_test(void)
+void z80_init(void)
 {
     uint16_t addr;
     uint8_t data;
-    int io_write;
 
-    /*
-     * reset Z80
-     */
-    delay_us(8);
+    // Perform a full power-cycle reset of the Z80.
+    // Put all Z80-related GPIOs into Hi-Z to avoid back-powering,
+    // then turn off the 5V supply long enough to fully discharge the system.
+    bus_master(0);
+    set_pin_dir(Z80_NMI, PIN_DIR_INPUT);
+    set_pin_dir(Z80_INT, PIN_DIR_INPUT);
+    set_pin_dir(Z80_RESET, PIN_DIR_INPUT);
+    set_pin_dir(Z80_BUSRQ, PIN_DIR_INPUT);
+    set_pin_dir(BANK_SEL0, PIN_DIR_INPUT);
+    set_pin_dir(BANK_SEL1, PIN_DIR_INPUT);
+
+    // Power-cycle the Z80 for a complete reset
+    set_pin(Z80_PWR_EN, PIN_LOW);
+    delay_ms(200);  // Keep power off long enough for a full reset
+    // Supply 5V power to the Z80
+    set_pin(Z80_PWR_EN, PIN_HIGH);
+    delay_ms(10);
+
+    // Reconfigure Z80 control and address pins after power-on
+    set_pin(Z80_NMI, PIN_INACTIVE);
+    set_pin(Z80_INT, PIN_INACTIVE);
     set_reset_pin(PIN_ACTIVE);
-    delay_us(8);
-
+    set_busrq_pin(PIN_INACTIVE);
     set_pin(BANK_SEL0, 0);  // A16
     set_pin(BANK_SEL1, 1);  // for TC551001 CE2 pin
-    #ifdef BANK_SEL2
-    set_pin(BANK_SEL2, 0);  // A18
-    #endif
+    set_pin_dir(Z80_NMI, PIN_DIR_OUTPUT);
+    set_pin_dir(Z80_INT, PIN_DIR_OUTPUT);
+    set_pin_dir(Z80_RESET, PIN_DIR_OUTPUT);
+    set_pin_dir(Z80_BUSRQ, PIN_DIR_OUTPUT);
+    set_pin_dir(BANK_SEL0, PIN_DIR_OUTPUT);
+    set_pin_dir(BANK_SEL1, PIN_DIR_OUTPUT);
 
+    // Acquire the Z80 bus
+    set_busrq_pin(PIN_ACTIVE);
+    set_reset_pin(PIN_INACTIVE);
+    delay_ms(10);  // Wait for BUSACK (allow extra time for the slow clock)
     bus_master(1);
 
+    // Load the initial program into RAM
     addr = 0;
     set_memrq_pin(PIN_ACTIVE);
     set_data_dir(PIN_DIR_OUTPUT);
@@ -136,9 +184,7 @@ void board_test(void)
         set_addr_pins(++addr);
     }
 
-    /*
-     * verify RAM data
-     */
+    // Verify RAM data
     addr = 0;
     set_data_dir(PIN_DIR_INPUT);
     set_addr_pins(addr);
@@ -153,16 +199,18 @@ void board_test(void)
         set_addr_pins(++addr);
     }
     set_memrq_pin(PIN_INACTIVE);
+}
 
-    set_busrq_pin(PIN_INACTIVE);
+void z80_run(void)
+{
+    uint16_t addr;
+    uint8_t data;
+    int io_write;
+
+    // Release the bus and start the Z80
     set_wait_pin_dir(PIN_DIR_INPUT);
     bus_master(0);
-
-    /*
-     * release reset ...
-     */
-    delay_us(8);
-    set_reset_pin(PIN_INACTIVE);
+    set_busrq_pin(PIN_INACTIVE);
 
     /*
      * run Z80
@@ -187,7 +235,7 @@ void board_test(void)
             data = data_pins();
             switch (addr & 0xff) {
             case UART_DREG:
-                printf("%c", data);
+                write(0, &data, 1);
                 break;
             default:
                 printf("%s: write %02X, %02X %c\r\n", __func__, addr & 0xff, data,

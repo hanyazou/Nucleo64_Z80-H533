@@ -24,6 +24,7 @@
 #include "msc.h"
 #include "nucleo64_z80.h"
 #include "util.h"
+#include "z80.h"
 
 void n64z80_init(void)
 {
@@ -34,10 +35,10 @@ void n64z80_init(void)
 void n64z80_thread_entry(ULONG argument)
 {
     (void)argument;
-    for (;;) {
-        msc_wait();
-        msc_test();
-    }
+    z80_init();
+    z80_run();
+    msc_wait();
+    msc_test();
 }
 
 void n64z80_msc_notify(void*dev)
