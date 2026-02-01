@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 @hanyazou
+ * Copyright (c) 2023-2026 @hanyazou
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -21,26 +21,25 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "msc.h"
-#include "nucleo64_z80.h"
-#include "util.h"
+#pragma once
 
-void n64z80_init(void)
-{
-    delay_init();
-    msc_init();
-}
+#include <stdint.h>
 
-void n64z80_thread_entry(ULONG argument)
-{
-    (void)argument;
-    for (;;) {
-        msc_wait();
-        msc_test();
-    }
-}
+#include "stm32h5xx_hal.h"
 
-void n64z80_msc_notify(void*dev)
-{
-    msc_notify(dev);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern int input_key_available(void);
+extern void delay_init(void);
+extern void delay_ms(uint32_t ms);
+extern void delay_us(uint32_t us);
+
+extern void uart_start(UART_HandleTypeDef *huart);
+extern void uart_rx_callback(UART_HandleTypeDef *huart);
+
+#ifdef __cplusplus
 }
+#endif
+
