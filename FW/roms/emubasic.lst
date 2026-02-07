@@ -1,7 +1,7 @@
               	; --------------------------------------
               	; zasm: assemble "emubasic.asm"
               	; opts: --reqcolon
-              	; date: 2024-04-28 16:41:11
+              	; date: 2026-02-07 17:25:44
               	; --------------------------------------
 
 
@@ -13,6 +13,38 @@
               	;	VERSION 1.0, 2022/02/15
               	;	WRITTEN by TETSUYA SUZUKI
               	;
+              		.include "io_asm.inc"
+              	;	Common definitions for Z80-Simulator
+              	;
+              	;	Copyright (C) 1988-2007 by Udo Munk
+              	;
+              	;
+              	;	SuperMEZ80 I/O ports
+              	;
+0000:         	CONSTA		EQU	0		;console status port
+0001:         	CONDAT		EQU	1		;console data port
+0002:         	PRTSTA		EQU	2		;printer status port
+0003:         	PRTDAT		EQU	3		;printer data port
+0005:         	AUXDAT		EQU	5		;auxiliary data port
+0008:         	FDCDAT		EQU	8		;fdc-port: # of drive
+000A:         	FDCD		EQU	10		;fdc-port: # of drive
+000B:         	FDCT		EQU	11		;fdc-port: # of track
+000C:         	FDCS		EQU	12		;fdc-port: # of sector
+000D:         	FDCOP		EQU	13		;fdc-port: command
+0000:         			D_DMA_READ	EQU	0
+0001:         			D_DMA_WRITE	EQU	1
+0002:         			D_READ		EQU	2
+0003:         			D_WRITE		EQU	3
+000E:         	FDCST		EQU	14		;fdc-port: status
+0000:         			D_SUCCESS	EQU	0
+0001:         			D_ERROR		EQU	1
+000F:         	DMAL		EQU	15		;dma-port: dma address low
+0010:         	DMAH		EQU	16		;dma-port: dma address high
+0014:         	MMU_INIT	EQU	20		;14h MMU initialisation
+0015:         	MMU_BANK_SEL	EQU	21		;15h MMU bank select
+0016:         	MMU_SEG_SIZE	EQU	22		;16h MMU select segment size (in pages a 256 bytes)
+0017:         	MMU_WR_PROT	EQU	23		;17h MMU write protect/unprotect common memory segment
+              	;
               	;	MEMORY ASIGN
 0000:         	ROMTOP	EQU	0000H
 8000:         	RAMTOP	EQU	8000H
@@ -20,8 +52,8 @@
 80ED:         	TSTACK	EQU	80EDH
               	;
               	;	UART REGISTER ADDRESS
-0000:         	UARTDR	EQU	00H	; UART DATA REGISTOR
-0001:         	UARTCR	EQU	01H	; UART CONTROL REGISTOR
+0001:         	UARTDR	EQU	CONDAT	; UART DATA REGISTOR
+0000:         	UARTCR	EQU	CONSTA	; UART CONTROL REGISTOR
               	;
               	;	RESET (RST 00H)
 0000:         		ORG	ROMTOP
@@ -42,10 +74,10 @@
 0018: C32C00  		JP	KBHIT
               	;
               	;	UART -> A
-001B: DB01    	RXA:	IN	A,(UARTCR)
+001B: DB00    	RXA:	IN	A,(UARTCR)
 001D: CB47    		BIT	0,A
 001F: 28FA    		JR	Z,RXA
-0021: DB00    		IN	A,(UARTDR)
+0021: DB01    		IN	A,(UARTDR)
 0023: FE61    		CP	'a'
 0025: D8      		RET	C
 0026: FE7B    		CP	'z'+1
@@ -54,17 +86,17 @@
 002B: C9      		RET
               	;
               	;	CHECK RECEIVE STATUS
-002C: DB01    	KBHIT:	IN	A,(UARTCR)
+002C: DB00    	KBHIT:	IN	A,(UARTCR)
 002E: CB47    		BIT	0,A
 0030: C9      		RET
               	;
               	;	A -> UART
 0031: F5      	TXA:	PUSH	AF
-0032: DB01    	TXAST1:	IN	A,(UARTCR)
+0032: DB00    	TXAST1:	IN	A,(UARTCR)
 0034: CB4F    		BIT	1,A
 0036: 28FA    		JR	Z,TXAST1
 0038: F1      		POP	AF
-0039: D300    		OUT	(UARTDR),A
+0039: D301    		OUT	(UARTDR),A
 003B: C9      		RET
               	;
               	;
@@ -4439,5 +4471,5 @@
               		END
 
 
-total time: 0.0148 sec.
+total time: 0.0160 sec.
 no errors

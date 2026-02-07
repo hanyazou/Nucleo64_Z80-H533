@@ -27,8 +27,10 @@
 extern "C" {
 #endif
 
-extern void z80_init(void);
-extern void z80_run(void);
+void z80_init(void);
+void z80_run(void);
+
+void io_handle(void);
 
 #ifdef __cplusplus
 }
