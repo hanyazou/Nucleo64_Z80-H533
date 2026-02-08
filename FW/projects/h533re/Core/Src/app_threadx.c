@@ -23,6 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <nucleo64_z80/nucleo64_z80.h>
 
 /* USER CODE END Includes */
 
@@ -33,6 +34,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define N64Z80_THREAD_STACK_SIZE   (2048u)
+#define N64Z80_THREAD_PRIORITY     (20u)
 
 /* USER CODE END PD */
 
@@ -43,6 +46,8 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
+static TX_THREAD n64z80_thread;
+static ULONG n64z80_thread_stack[N64Z80_THREAD_STACK_SIZE / sizeof(ULONG)];
 
 /* USER CODE END PV */
 
@@ -63,6 +68,18 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
 
   /* USER CODE END App_ThreadX_MEM_POOL */
   /* USER CODE BEGIN App_ThreadX_Init */
+ n64z80_init();
+ tx_thread_create(&n64z80_thread,
+                   (CHAR *)"n64z80",
+                   n64z80_thread_entry,
+                   0,
+                   n64z80_thread_stack,
+                   sizeof(n64z80_thread_stack),
+                   N64Z80_THREAD_PRIORITY,
+                   N64Z80_THREAD_PRIORITY,
+                   TX_NO_TIME_SLICE,
+                   TX_AUTO_START);
+
   /* USER CODE END App_ThreadX_Init */
 
   return ret;

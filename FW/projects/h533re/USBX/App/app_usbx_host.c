@@ -24,6 +24,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <nucleo64_z80/nucleo64_z80.h>
 
 /* USER CODE END Includes */
 
@@ -189,6 +190,7 @@ UINT ux_host_event_callback(ULONG event, UX_HOST_CLASS *current_class, VOID *cur
       /* USER CODE BEGIN UX_DEVICE_CONNECTION */
       printf("%s: UX_DEVICE_CONNECTION\r\n", __func__);
       print_device_desc((UX_DEVICE *)current_instance);
+      n64z80_msc_notify(current_instance);
 
       /* USER CODE END UX_DEVICE_CONNECTION */
 
@@ -198,6 +200,7 @@ UINT ux_host_event_callback(ULONG event, UX_HOST_CLASS *current_class, VOID *cur
 
       /* USER CODE BEGIN UX_DEVICE_DISCONNECTION */
       printf("%s: UX_DEVICE_DISCONNECTION\r\n", __func__);
+      n64z80_msc_notify(NULL);
 
       /* USER CODE END UX_DEVICE_DISCONNECTION */
 
