@@ -23,12 +23,20 @@
 
 #pragma once
 
+#include <stdbool.h>
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void z80_init(void);
 void z80_run(void);
+
+void mem_init(void);
+void mem_store_to_z80_ram(uint32_t addr, const void *buf, unsigned int len);
+void mem_load_from_z80_ram(uint32_t addr, void *buf, unsigned int len);
+bool mem_verify_z80_ram(uint32_t addr, const void *buf, unsigned int len);
 
 void io_handle(void);
 

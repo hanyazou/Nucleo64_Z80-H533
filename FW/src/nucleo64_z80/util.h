@@ -31,13 +31,17 @@
 extern "C" {
 #endif
 
-extern int input_key_available(void);
-extern void delay_init(void);
-extern void delay_ms(uint32_t ms);
-extern void delay_us(uint32_t us);
+int input_key_available(void);
+void delay_init(void);
+void delay_ms(uint32_t ms);
+void delay_us(uint32_t us);
 
-extern void uart_start(UART_HandleTypeDef *huart);
-extern void uart_rx_callback(UART_HandleTypeDef *huart);
+void uart_start(UART_HandleTypeDef *huart);
+void uart_rx_callback(UART_HandleTypeDef *huart);
+
+void util_hexdump(const char *header, const void *addr, unsigned int size);
+void util_hexdump_sum(const char *header, const void *addr, unsigned int size);
+void util_addrdump(const char *header, uint32_t addr_offs, const void *addr, unsigned int size);
 
 #ifdef __cplusplus
 }

@@ -25,6 +25,9 @@
 #include "main.h"
 #include "core_cm33.h"
 
+#include <stdio.h>
+#include <ctype.h>
+
 #define RX_BUF_SIZE 128
 
 static UART_HandleTypeDef *g_huart;
@@ -112,4 +115,57 @@ void delay_us(uint32_t us)
 void delay_ms(uint32_t ms)
 {
     delay_us(ms*1000);
+}
+
+void util_hexdump(const char *header, const void *addr, unsigned int size)
+{
+    char chars[17];
+    const uint8_t *buf = addr;
+    size = ((size + 15) & ~0xfU);
+    for (int i = 0; i < size; i++) {
+        if ((i % 16) == 0)
+            printf("%s%04x:", header, i);
+        printf(" %02x", buf[i]);
+        if (0x20 <= buf[i] && buf[i] <= 0x7e) {
+            chars[i % 16] = buf[i];
+        } else {
+            chars[i % 16] = '.';
+        }
+        if ((i % 16) == 15) {
+            chars[16] = '\0';
+            printf(" %s\n\r", chars);
+        }
+    }
+}
+
+void util_addrdump(const char *header, uint32_t addr_offs, const void *addr, unsigned int size)
+{
+    char chars[17];
+    const uint8_t *buf = addr;
+    size = ((size + 15) & ~0xfU);
+    for (unsigned int i = 0; i < size; i++) {
+        if ((i % 16) == 0)
+            printf("%s%06lx:", header, addr_offs + i);
+        printf(" %02x", buf[i]);
+        if (0x20 <= buf[i] && buf[i] <= 0x7e) {
+            chars[i % 16] = buf[i];
+        } else {
+            chars[i % 16] = '.';
+        }
+        if ((i % 16) == 15) {
+            chars[16] = '\0';
+            printf(" %s\n\r", chars);
+        }
+    }
+}
+
+void util_hexdump_sum(const char *header, const void *addr, unsigned int size)
+{
+    util_hexdump(header, addr, size);
+
+    uint8_t sum = 0;
+    const uint8_t *p = addr;
+    for (int i = 0; i < size; i++)
+        sum += *p++;
+    printf("%s%53s CHECKSUM: %02x\n\r", header, "", sum);
 }

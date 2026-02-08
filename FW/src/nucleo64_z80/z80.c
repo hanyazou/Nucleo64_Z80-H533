@@ -37,9 +37,6 @@ extern const uint8_t rom[];
 
 void z80_init(void)
 {
-    uint16_t addr;
-    uint8_t data;
-
     // Perform a full power-cycle reset of the Z80.
     z80_deinit_pins();  // Put all Z80-related GPIOs into Hi-Z to avoid back-powering
     set_pin(Z80_PWR_EN, PIN_LOW);  // turn off the 5V supply
@@ -58,34 +55,11 @@ void z80_init(void)
     delay_ms(10);  // Wait for BUSACK (allow extra time for the slow clock)
     bus_master(1);
 
-    // Load the initial program into RAM
-    addr = 0;
-    set_memrq_pin(PIN_ACTIVE);
-    set_data_dir(PIN_DIR_OUTPUT);
-    set_addr_pins(addr);
-    while (addr < rom_size) {
-        set_data_pins(rom[addr]);
-        set_wr_pin(PIN_ACTIVE);
-        delay_us(1);
-        set_wr_pin(PIN_INACTIVE);
-        set_addr_pins(++addr);
-    }
+    mem_init();
 
-    // Verify RAM data
-    addr = 0;
-    set_data_dir(PIN_DIR_INPUT);
-    set_addr_pins(addr);
-    while (addr < rom_size) {
-        set_rd_pin(PIN_ACTIVE);
-        data = data_pins();
-        if (data != rom[addr]) {
-            printf("ERROR at %04X, %02X != %02X\r\n", addr, data, rom[addr]);
-        }
-        delay_us(1);
-        set_rd_pin(PIN_INACTIVE);
-        set_addr_pins(++addr);
-    }
-    set_memrq_pin(PIN_INACTIVE);
+    // Load the initial program into RAM and verify it
+    mem_store_to_z80_ram(0, rom, rom_size);
+    if (!mem_verify_z80_ram(0, rom, rom_size)) while (1);
 }
 
 void z80_run(void)
