@@ -25,8 +25,6 @@
 
 #include <stdint.h>
 
-#include "stm32h5xx_hal.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -35,9 +33,6 @@ int input_key_available(void);
 void delay_init(void);
 void delay_ms(uint32_t ms);
 void delay_us(uint32_t us);
-
-void uart_start(UART_HandleTypeDef *huart);
-void uart_rx_callback(UART_HandleTypeDef *huart);
 
 void util_hexdump(const char *header, const void *addr, unsigned int size);
 void util_hexdump_sum(const char *header, const void *addr, unsigned int size);

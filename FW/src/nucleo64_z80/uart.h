@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 @hanyazou
+ * Copyright (c) 2023-2026 @hanyazou
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -23,22 +23,15 @@
 
 #pragma once
 
-#ifdef STM32H533xx
-#include "stm32h5xx_hal.h"
-#endif
-#include "tx_api.h"
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void n64z80_init(void);
-void n64z80_thread_entry(ULONG argument);
-void n64z80_msc_notify(void*dev);
-
-void uart_start(UART_HandleTypeDef *huart);
-void uart_rx_callback(UART_HandleTypeDef *huart);
+int input_key_available(void);
 
 #ifdef __cplusplus
 }
 #endif
+

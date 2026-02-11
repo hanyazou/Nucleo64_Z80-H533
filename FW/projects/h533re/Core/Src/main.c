@@ -23,7 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
-#include "nucleo64_z80/util.h"
+#include "nucleo64_z80/nucleo64_z80.h"
 
 /* USER CODE END Includes */
 

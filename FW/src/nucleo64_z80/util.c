@@ -22,72 +22,13 @@
  */
 
 #include "util.h"
-#include "main.h"
+#include "nucleo64_z80.h"
 #include "core_cm33.h"
 
 #include <stdio.h>
 #include <ctype.h>
 
-#define RX_BUF_SIZE 128
-
-static UART_HandleTypeDef *g_huart;
-static uint8_t g_uart_rx_ch;
-static volatile uint8_t g_rx_buf[RX_BUF_SIZE];
-static volatile uint16_t g_rx_w = 0;
-static volatile uint16_t g_rx_r = 0;
 static uint32_t g_ticks_per_us;
-
-int _write(int file, char *ptr, int len)
-{
-    (void)file;
-    HAL_UART_Transmit(g_huart, (uint8_t*)ptr, (uint16_t)len, HAL_MAX_DELAY);
-    return len;
-}
-
-void uart_start(UART_HandleTypeDef *huart)
-{
-    g_huart = huart;
-    HAL_UART_Receive_IT(g_huart, &g_uart_rx_ch, 1);
-}
-
-static inline void rx_buf_push(uint8_t ch)
-{
-    uint16_t next = (g_rx_w + 1) % RX_BUF_SIZE;
-    if (next != g_rx_r) {   // overflow discard
-        g_rx_buf[g_rx_w] = ch;
-        g_rx_w = next;
-    }
-}
-
-static inline int rx_buf_pop(uint8_t *ch)
-{
-    if (g_rx_r == g_rx_w)
-        return 0;   // empty
-    *ch = g_rx_buf[g_rx_r];
-    g_rx_r = (g_rx_r + 1) % RX_BUF_SIZE;
-    return 1;
-}
-
-void uart_rx_callback(UART_HandleTypeDef *huart)
-{
-    if (huart == g_huart) {
-        rx_buf_push(g_uart_rx_ch);
-        HAL_UART_Receive_IT(g_huart, &g_uart_rx_ch, 1);
-    }
-}
-
-int _read(int file, char *ptr, int len)
-{
-    (void)file;
-    if (len <= 0) return 0;
-    if (!rx_buf_pop((uint8_t*)ptr)) return 0;
-    return 1;
-}
-
-int input_key_available(void)
-{
-    return g_rx_r != g_rx_w;
-}
 
 void delay_init(void)
 {
