@@ -39,6 +39,10 @@ void n64z80_msc_notify(void*dev);
 void uart_start(UART_HandleTypeDef *huart);
 void uart_rx_callback(UART_HandleTypeDef *huart);
 
+void sd_spi_start(SPI_HandleTypeDef *hspi);
+void sd_spi_acquire(void);
+void sd_spi_release(void);
+
 #ifdef __cplusplus
 }
 #endif
