@@ -110,8 +110,8 @@ void MX_USB_HCD_Init(void);
 #define Z80_A9_GPIO_Port GPIOC
 #define Z80_WAIT_Pin GPIO_PIN_8
 #define Z80_WAIT_GPIO_Port GPIOA
-#define SPI1_SS_Pin GPIO_PIN_9
-#define SPI1_SS_GPIO_Port GPIOA
+#define SPI_SS_Pin GPIO_PIN_9
+#define SPI_SS_GPIO_Port GPIOA
 #define Z80_PWR_EN_Pin GPIO_PIN_10
 #define Z80_PWR_EN_GPIO_Port GPIOA
 #define Z80_NMI_Pin GPIO_PIN_15
@@ -139,6 +139,7 @@ void MX_USB_HCD_Init(void);
 
 /* USER CODE BEGIN Private defines */
 extern HCD_HandleTypeDef hhcd_USB_DRD_FS;
+extern SPI_HandleTypeDef hspi1;
 
 /* USER CODE END Private defines */
 
