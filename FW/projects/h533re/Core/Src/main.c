@@ -113,6 +113,7 @@ int main(void)
   uart_start(&huart2);
   printf("\r\nNucleo64 Z80 H533RE\r\n");
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+  sd_spi_start(&hspi1);
 
   /* USER CODE END 2 */
 
