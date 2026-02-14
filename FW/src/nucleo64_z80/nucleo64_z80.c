@@ -25,6 +25,7 @@
 #include "nucleo64_z80.h"
 #include "util.h"
 #include "z80.h"
+#include "sd_disk.h"
 
 void n64z80_init(void)
 {
@@ -35,6 +36,8 @@ void n64z80_init(void)
 void n64z80_thread_entry(ULONG argument)
 {
     (void)argument;
+    z80_poweron();
+    sd_disk_init();
     z80_init();
     z80_run();
     msc_wait();

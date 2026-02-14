@@ -25,24 +25,26 @@
 #include "util.h"
 #include "z80.h"
 #include "z80_pins.h"
+#include "sd_disk.h"
 
 #include <stdio.h>
 #include <stdint.h>
 
-#define ROM_MBASIC
-//#define ROM_IPL
+static size_t rom_basic_size;
+static const uint8_t rom_basic[];
+static size_t rom_ipl_size;
+static const uint8_t rom_ipl[];
 
-extern size_t rom_size;
-extern const uint8_t rom[];
+static struct z80_pin_state g_pin_state;
 
-void z80_init(void)
+void z80_poweron(void)
 {
-    struct z80_pin_state pin_state;
     // Put all Z80-related GPIOs into Hi-Z to avoid back-powering
     set_reset_pin(0);
     set_busrq_pin(0);
     set_bank_pins(0);
-    z80_release_pins(&pin_state);
+    z80_release_pins(&g_pin_state);
+
     // Perform a full power-cycle reset of the Z80.
     set_pin(Z80_PWR_EN, PIN_LOW);  // turn off the 5V supply
     delay_ms(200);  // Keep power off long enough for a full reset
@@ -50,9 +52,12 @@ void z80_init(void)
     // Supply 5V power to the Z80
     set_pin(Z80_PWR_EN, PIN_HIGH);
     delay_ms(10);
+}
 
+void z80_init(void)
+{
     // Reconfigure Z80 control and address pins after power-on
-    z80_acquire_pins(&pin_state);
+    z80_acquire_pins(&g_pin_state);
 
     // Acquire the Z80 bus
     set_busrq_pin(PIN_ACTIVE);
@@ -63,6 +68,16 @@ void z80_init(void)
     mem_init();
 
     // Load the initial program into RAM and verify it
+    const uint8_t *rom;
+    size_t rom_size;
+
+    if (sd_disk_have_boot_drive()) {
+        rom = rom_ipl;
+        rom_size = rom_ipl_size;
+    } else {
+        rom = rom_basic;
+        rom_size = rom_basic_size;
+    }
     mem_store_to_z80_ram(0, rom, rom_size);
     if (!mem_verify_z80_ram(0, rom, rom_size)) while (1);
 }
@@ -72,7 +87,10 @@ void z80_run(void)
     // Release the bus and start the Z80
     set_wait_pin_dir(PIN_DIR_INPUT);
     bus_master(0);
+    set_reset_pin(PIN_ACTIVE);
     set_busrq_pin(PIN_INACTIVE);
+    delay_ms(1);
+    set_reset_pin(PIN_INACTIVE);
 
     /*
      * Z80 run loop
@@ -103,12 +121,12 @@ void z80_run(void)
         HAL_Delay(10000);
 }
 
-const uint8_t rom[] = {
-#ifdef ROM_MBASIC
+static const uint8_t rom_basic[] = {
 #include "emubasic.inc"
-#endif
-#ifdef ROM_IPL
-#include "ipl.inc"
-#endif
 };
-size_t rom_size = sizeof(rom);
+static size_t rom_basic_size = sizeof(rom_basic);
+
+static const uint8_t rom_ipl[] = {
+#include "ipl.inc"
+};
+static size_t rom_ipl_size = sizeof(rom_ipl);

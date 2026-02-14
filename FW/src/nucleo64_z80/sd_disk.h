@@ -23,23 +23,25 @@
 
 #pragma once
 
+#include <fatfs/fatfs.h>
+
 #include <stdbool.h>
-#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void z80_poweron(void);
-void z80_init(void);
-void z80_run(void);
+struct sd_file_drive {
+    unsigned int sectors;
+    FIL *filep;
+};
+extern struct sd_file_drive sd_file_drives[];
+extern const int sd_file_num_drives;
 
-void mem_init(void);
-void mem_store_to_z80_ram(uint32_t addr, const void *buf, unsigned int len);
-void mem_load_from_z80_ram(uint32_t addr, void *buf, unsigned int len);
-bool mem_verify_z80_ram(uint32_t addr, const void *buf, unsigned int len);
-
-void io_handle(void);
+void sd_disk_init(void);
+FIL *sd_disk_get_file(void);
+void sd_disk_put_file(FIL *file);
+bool sd_disk_have_boot_drive(void);
 
 #ifdef __cplusplus
 }
