@@ -23,7 +23,7 @@
 / Additional user header to be used
 /-----------------------------------------------------------------------------*/
 #include "main.h"
-#include "stm32l4xx_hal.h"
+#include "nucleo64_config.h"
 
 /*-----------------------------------------------------------------------------/
 / Function Configurations
