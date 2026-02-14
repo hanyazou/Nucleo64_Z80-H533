@@ -24,8 +24,10 @@
 #pragma once
 
 #include "main.h"
+#include "nucleo64_config.h"
 
-#include "stm32h5xx_hal.h"
+#include <stdbool.h>
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,6 +51,15 @@ extern "C" {
      (CAT(pin,_GPIO_Port)->MODER |= MODER_FIELD_LSB(CAT(pin,_Pin))))
 
 typedef uint8_t __bit;
+struct z80_pin_state {
+    bool bus_master;
+    __bit z80_nmi;
+    __bit z80_int;
+    __bit z80_reset;
+    __bit z80_busrq;
+    __bit bank_sel0;
+    __bit bank_sel1;
+};
 
 static inline void set_mask16(volatile uint16_t *r, uint16_t v, uint16_t m) {
     *r = (*r & ~m) | (v & m);
@@ -100,9 +111,9 @@ static inline void set_reset_pin(uint8_t v) { set_pin(Z80_RESET, v); }
 static inline void set_wait_pin(uint8_t v) { set_pin(Z80_WAIT, v); }
 static inline void set_wait_pin_dir(uint8_t v) { set_pin_dir(Z80_WAIT, v); }
 
-void bus_master(int enable);
-void z80_init_pins(void);
-void z80_deinit_pins(void);
+bool bus_master(bool enable);
+void z80_acquire_pins(struct z80_pin_state *state);
+void z80_release_pins(struct z80_pin_state *state);
 
 #ifdef __cplusplus
 }

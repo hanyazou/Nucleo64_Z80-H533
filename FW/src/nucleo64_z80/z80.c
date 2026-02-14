@@ -37,8 +37,13 @@ extern const uint8_t rom[];
 
 void z80_init(void)
 {
+    struct z80_pin_state pin_state;
+    // Put all Z80-related GPIOs into Hi-Z to avoid back-powering
+    set_reset_pin(0);
+    set_busrq_pin(0);
+    set_bank_pins(0);
+    z80_release_pins(&pin_state);
     // Perform a full power-cycle reset of the Z80.
-    z80_deinit_pins();  // Put all Z80-related GPIOs into Hi-Z to avoid back-powering
     set_pin(Z80_PWR_EN, PIN_LOW);  // turn off the 5V supply
     delay_ms(200);  // Keep power off long enough for a full reset
 
@@ -47,7 +52,7 @@ void z80_init(void)
     delay_ms(10);
 
     // Reconfigure Z80 control and address pins after power-on
-    z80_init_pins();
+    z80_acquire_pins(&pin_state);
 
     // Acquire the Z80 bus
     set_busrq_pin(PIN_ACTIVE);

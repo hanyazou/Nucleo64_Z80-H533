@@ -23,24 +23,37 @@
 
 #include "z80_pins.h"
 
-void z80_init_pins(void)
+static bool g_bus_master = false;
+
+void z80_acquire_pins(struct z80_pin_state *state)
 {
-    set_pin(Z80_NMI, PIN_INACTIVE);
-    set_pin(Z80_INT, PIN_INACTIVE);
-    set_reset_pin(PIN_ACTIVE);
-    set_busrq_pin(PIN_INACTIVE);
-    set_bank_pins(0);
+    set_pin(Z80_NMI, state->z80_nmi);
+    set_pin(Z80_INT, state->z80_int);
+    set_pin(Z80_RESET, state->z80_reset);
+    set_pin(Z80_BUSRQ, state->z80_busrq);
+    set_pin(BANK_SEL0, state->bank_sel0);
+    set_pin(BANK_SEL1, state->bank_sel1);
+
     set_pin_dir(Z80_NMI, PIN_DIR_OUTPUT);
     set_pin_dir(Z80_INT, PIN_DIR_OUTPUT);
     set_pin_dir(Z80_RESET, PIN_DIR_OUTPUT);
     set_pin_dir(Z80_BUSRQ, PIN_DIR_OUTPUT);
     set_pin_dir(BANK_SEL0, PIN_DIR_OUTPUT);
     set_pin_dir(BANK_SEL1, PIN_DIR_OUTPUT);
-    bus_master(0);
+    bus_master(state->bus_master);
 }
 
-void z80_deinit_pins(void)
+void z80_release_pins(struct z80_pin_state *state)
 {
+    memset(state, 0, sizeof(*state));
+    state->bus_master = g_bus_master;
+    state->z80_nmi = get_pin(Z80_NMI);
+    state->z80_int = get_pin(Z80_INT);
+    state->z80_reset = get_pin(Z80_RESET);
+    state->z80_busrq = get_pin(Z80_BUSRQ);
+    state->bank_sel0 = get_pin(BANK_SEL0);
+    state->bank_sel1 = get_pin(BANK_SEL1);
+
     set_pin_dir(Z80_NMI, PIN_DIR_INPUT);
     set_pin_dir(Z80_INT, PIN_DIR_INPUT);
     set_pin_dir(Z80_RESET, PIN_DIR_INPUT);
@@ -50,9 +63,12 @@ void z80_deinit_pins(void)
     bus_master(0);
 }
 
-void bus_master(int enable)
+bool bus_master(bool enable)
 {
+    bool ret = g_bus_master;
     if (enable) {
+        g_bus_master = true;
+
         // Set address bus as output
         set_addr_dir(PIN_DIR_OUTPUT);
 
@@ -67,6 +83,8 @@ void bus_master(int enable)
         set_pin_dir(Z80_RD, PIN_DIR_OUTPUT);
         set_pin_dir(Z80_WR, PIN_DIR_OUTPUT);
     } else {
+        g_bus_master = false;
+
         // Set address and data bus as input
         set_addr_dir(PIN_DIR_INPUT);
         set_data_dir(PIN_DIR_INPUT);
@@ -77,4 +95,5 @@ void bus_master(int enable)
         set_pin_dir(Z80_RD, PIN_DIR_INPUT);
         set_pin_dir(Z80_WR, PIN_DIR_INPUT);
     }
+    return ret;
 }
