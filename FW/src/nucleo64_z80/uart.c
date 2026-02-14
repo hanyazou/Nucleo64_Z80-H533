@@ -77,7 +77,13 @@ int _read(int file, char *ptr, int len)
 {
     (void)file;
     if (len <= 0) return 0;
-    if (!rx_buf_pop((uint8_t*)ptr)) return 0;
+
+    uint8_t ch;
+    while (!rx_buf_pop(&ch)) {
+        tx_thread_sleep(1);  // or __WFI();
+    }
+
+    *ptr = (char)ch;
     return 1;
 }
 
