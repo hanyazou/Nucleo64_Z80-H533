@@ -40,6 +40,8 @@ void mem_read_ram(uint32_t addr, void *buf, unsigned int len);
 bool mem_verify_ram(uint32_t addr, const void *buf, unsigned int len);
 void mem_write_z80_ram(uint16_t addr, const void *buf, unsigned int len);
 void mem_read_z80_ram(uint16_t addr, void *buf, unsigned int len);
+void mmu_bank_config(int nbanks);
+void mmu_bank_select(int bank);
 
 void io_handle(void);
 
