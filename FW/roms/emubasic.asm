@@ -54,12 +54,8 @@ KBHIT:	IN	A,(UARTCR)
 	RET
 ;
 ;	A -> UART
-TXA:	PUSH	AF
-TXAST1:	IN	A,(UARTCR)
-	BIT	1,A
-	JR	Z,TXAST1
-	POP	AF
-	OUT	(UARTDR),A
+;	NOTE: TX is always ready on Nucleo64 Z80
+TXA:	OUT	(UARTDR),A
 	RET
 ;
 ;

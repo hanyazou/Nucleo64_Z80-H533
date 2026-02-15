@@ -231,7 +231,7 @@ void io_handle()
         break;
     case UART_CREG:
         if (io_read) {
-            data = input_key_available() ? 0x03 : 0x02;
+            data = input_key_available() ? 0xff : 0x00;
             io_handled = true;
         }
         break;
