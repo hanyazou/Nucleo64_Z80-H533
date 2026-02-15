@@ -56,11 +56,18 @@ void z80_release_pins(struct z80_pin_state *state)
 
     set_pin_dir(Z80_NMI, PIN_DIR_INPUT);
     set_pin_dir(Z80_INT, PIN_DIR_INPUT);
-    set_pin_dir(Z80_RESET, PIN_DIR_INPUT);
-    set_pin_dir(Z80_BUSRQ, PIN_DIR_INPUT);
-    set_pin_dir(BANK_SEL0, PIN_DIR_INPUT);
-    set_pin_dir(BANK_SEL1, PIN_DIR_INPUT);
-    bus_master(0);
+    set_addr_dir(PIN_DIR_INPUT);
+    set_data_dir(PIN_DIR_INPUT);
+    set_pin_dir(Z80_RD, PIN_DIR_INPUT);
+    set_pin_dir(Z80_WR, PIN_DIR_INPUT);
+    if (!g_bus_master) {
+        set_pin_dir(Z80_RESET, PIN_DIR_INPUT);
+        set_pin_dir(Z80_BUSRQ, PIN_DIR_INPUT);
+        set_pin_dir(BANK_SEL0, PIN_DIR_INPUT);
+        set_pin_dir(BANK_SEL1, PIN_DIR_INPUT);
+        set_pin_dir(Z80_IOREQ, PIN_DIR_INPUT);
+        set_pin_dir(Z80_MEMRQ, PIN_DIR_INPUT);
+    }
 }
 
 bool bus_master(bool enable)
