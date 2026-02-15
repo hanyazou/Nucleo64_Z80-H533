@@ -78,8 +78,8 @@ void z80_init(void)
         rom = rom_basic;
         rom_size = rom_basic_size;
     }
-    mem_store_to_z80_ram(0, rom, rom_size);
-    if (!mem_verify_z80_ram(0, rom, rom_size)) while (1);
+    mem_write_ram(0, rom, rom_size);
+    if (!mem_verify_ram(0, rom, rom_size)) while (1);
 }
 
 void z80_run(void)

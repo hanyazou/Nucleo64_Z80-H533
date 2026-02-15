@@ -72,8 +72,8 @@ void mem_init()
 
         // Write/read-back at 'addr' to confirm this address is writable.
         mem_addr_signature(addr, expected, sizeof(expected));
-        mem_store_to_z80_ram(addr, expected, sizeof(expected));
-        mem_load_from_z80_ram(addr, actual, sizeof(actual));
+        mem_write_ram(addr, expected, sizeof(expected));
+        mem_read_ram(addr, actual, sizeof(actual));
         if (memcmp(expected, actual, sizeof(expected)) != 0) {
             printf("\nMemory error at %06lXH\n\r", addr);
             util_addrdump("expect: ", addr, expected, sizeof(expected));
@@ -83,7 +83,7 @@ void mem_init()
 
         // Capacity probe: stop when the signature at 'addr' matches 0x00000 (wrap-around).
         if (addr == 0) continue;
-        mem_load_from_z80_ram(0, actual, sizeof(actual));
+        mem_read_ram(0, actual, sizeof(actual));
         if (memcmp(expected, actual, sizeof(actual)) == 0) {
             // Wrap-around: 'addr' maps back to the first region -> end of usable SRAM.
             break;
@@ -104,7 +104,7 @@ void mem_init()
         // Expected signature written in Stage 1.
         mem_addr_signature(addr, expected, sizeof(expected));
 
-        mem_load_from_z80_ram(addr, actual, sizeof(actual));
+        mem_read_ram(addr, actual, sizeof(actual));
         if (memcmp(expected, actual, sizeof(actual)) != 0) {
             printf("\nMemory error at %06lXH\n\r", addr);
             util_addrdump("expect: ", addr, expected, sizeof(expected));
@@ -122,14 +122,14 @@ void mem_init()
 
             // Write a signature via bank0-fixed C000 region.
             mem_addr_signature(addr, expected, sizeof(expected));
-            mem_store_to_z80_ram(addr, expected, sizeof(expected));
+            mem_write_ram(addr, expected, sizeof(expected));
 
             // Overwrite via bankN+C000; should hit the same physical region.
             mem_addr_signature(bank_addr + addr, expected, sizeof(expected));
-            mem_store_to_z80_ram(bank_addr + addr, expected, sizeof(expected));
+            mem_write_ram(bank_addr + addr, expected, sizeof(expected));
 
             // Read back from 0x0C000: must match the last write (bank bits ignored here).
-            mem_load_from_z80_ram(addr, actual, sizeof(actual));
+            mem_read_ram(addr, actual, sizeof(actual));
             if (memcmp(expected, actual, sizeof(expected)) != 0) {
                 printf("\nMemory error at %06lXH\n\r", addr);
                 util_addrdump("expect: ", 0x0c000, expected, sizeof(expected));
@@ -142,41 +142,21 @@ void mem_init()
     printf("Memory 000000 - %06XH %d KB OK\r\n", (unsigned int)addr, (int)(mmu_mem_size / 1024));
 }
 
-void mem_store_to_z80_ram(uint32_t addr, const void *buf, unsigned int len)
+void mem_write_ram(uint32_t addr, const void *buf, unsigned int len)
 {
-    set_memrq_pin(PIN_ACTIVE);
     set_bank_pins(addr);
-    set_data_dir(PIN_DIR_OUTPUT);
-    while (len--) {
-        set_addr_pins(addr++);
-        set_data_pins(*(uint8_t*)buf++);
-        set_wr_pin(PIN_ACTIVE);
-        delay_us(1);
-        set_wr_pin(PIN_INACTIVE);
-    }
-    set_memrq_pin(PIN_INACTIVE);
+    mem_write_z80_ram((uint16_t)addr, buf, len);
     set_bank_pins((uint32_t)mmu_bank << 16);
-    set_data_dir(PIN_DIR_INPUT);
 }
 
-void mem_load_from_z80_ram(uint32_t addr, void *buf, unsigned int len)
+void mem_read_ram(uint32_t addr, void *buf, unsigned int len)
 {
-    set_memrq_pin(PIN_ACTIVE);
     set_bank_pins(addr);
-    set_data_dir(PIN_DIR_INPUT);
-    while (len--) {
-        set_addr_pins(addr++);
-        set_rd_pin(PIN_ACTIVE);
-        delay_us(1);
-        *(uint8_t*)buf++ = data_pins();
-        set_rd_pin(PIN_INACTIVE);
-    }
-    set_memrq_pin(PIN_INACTIVE);
+    mem_read_z80_ram((uint16_t)addr, buf, len);
     set_bank_pins((uint32_t)mmu_bank << 16);
-    set_data_dir(PIN_DIR_INPUT);
 }
 
-bool mem_verify_z80_ram(uint32_t addr, const void *buf, unsigned int len)
+bool mem_verify_ram(uint32_t addr, const void *buf, unsigned int len)
 {
     int errors = 0;
     set_memrq_pin(PIN_ACTIVE);
@@ -200,6 +180,36 @@ bool mem_verify_z80_ram(uint32_t addr, const void *buf, unsigned int len)
     set_data_dir(PIN_DIR_INPUT);
 
     return errors == 0 ? true : false;
+}
+
+void mem_write_z80_ram(uint16_t addr, const void *buf, unsigned int len)
+{
+    set_memrq_pin(PIN_ACTIVE);
+    set_data_dir(PIN_DIR_OUTPUT);
+    while (len--) {
+        set_addr_pins(addr++);
+        set_data_pins(*(uint8_t*)buf++);
+        set_wr_pin(PIN_ACTIVE);
+        delay_us(1);
+        set_wr_pin(PIN_INACTIVE);
+    }
+    set_memrq_pin(PIN_INACTIVE);
+    set_data_dir(PIN_DIR_INPUT);
+}
+
+void mem_read_z80_ram(uint16_t addr, void *buf, unsigned int len)
+{
+    set_memrq_pin(PIN_ACTIVE);
+    set_data_dir(PIN_DIR_INPUT);
+    while (len--) {
+        set_addr_pins(addr++);
+        set_rd_pin(PIN_ACTIVE);
+        delay_us(1);
+        *(uint8_t*)buf++ = data_pins();
+        set_rd_pin(PIN_INACTIVE);
+    }
+    set_memrq_pin(PIN_INACTIVE);
+    set_data_dir(PIN_DIR_INPUT);
 }
 
 void mmu_bank_config(int nbanks)
