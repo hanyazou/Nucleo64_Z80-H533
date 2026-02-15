@@ -67,48 +67,91 @@ void io_handle()
 {
     uint16_t addr;
     uint8_t data;
-    int io_write;
+    bool io_write, io_read;
 
     addr = addr_pins();
     io_write = (wr_pin() == PIN_ACTIVE);
+    if (io_write) data = data_pins();
+    io_read = ! io_write;
 
-    if (io_write) {
-        data = data_pins();
-        switch (addr & 0xff) {
+    switch (addr & 0xff) {
     case UART_DREG:
-        write(0, &data, 1);
-        break;
-    default:
-        printf("%s: write %02X, %02X %c\r\n", __func__, addr & 0xff, data,
-               (0x30 <= data && data <= 0x7f) ? data : ' ');
-        break;
+        if (io_write) {
+            write(0, &data, 1);
+        } else {
+            data = getchar();
         }
-    } else {
-        switch (addr & 0xff) {
-    case UART_DREG:
-        data = getchar();
         break;
     case UART_CREG:
-        data = input_key_available() ? 0x03 : 0x02;
+        if (io_read) {
+            data = input_key_available() ? 0x03 : 0x02;
+        }
         break;
     default:
-        printf("%s:  read %02X\r\n", __func__, addr & 0xff);
-        data = 0xff;
-        break;
+        if (io_write) {
+            printf("%s: write %02X, %02X %c\r\n", __func__, addr & 0xff, data,
+                   (0x30 <= data && data <= 0x7f) ? data : ' ');
+        } else {
+            printf("%s:  read %02X\r\n", __func__, addr & 0xff);
+            data = 0xff;
         }
+        break;
+    }
+
+    if (io_read) {
         set_data_pins(data);
         set_data_dir(PIN_DIR_OUTPUT);
     }
 
+    // Complete the current Z80 I/O cycle under MCU control.
+    //
+    // The Z80 is currently held in WAIT during an I/O access.
+    // The following sequence (steps 1–3) completes exactly one
+    // I/O machine cycle while keeping the CPU under MCU control:
+    //
+    //   Step 1: Assert BUSRQ so the Z80 will relinquish the bus
+    //           immediately after the current I/O cycle completes.
+    //
+    //   Step 2: Release WAIT to allow the pending I/O cycle
+    //           (read or write) to proceed and complete.
+    //
+    //   Step 3: Wait for IORQ to be deasserted, confirming that
+    //           the I/O cycle has fully finished, then restore
+    //           bus signals to a safe (Hi-Z) state.
+    //
+    // After step 3, the I/O cycle is complete and the Z80 is stopped
+    // with BUSRQ asserted. From this point on, the MCU owns the bus
+    // and may perform additional operations (e.g. DMA, memory access,
+    // or internal processing).
+    //
+    // Note:
+    // BUSRQ is sampled at machine cycle boundaries.
+    // By asserting BUSRQ before releasing WAIT, we ensure
+    // the CPU stops immediately after this I/O cycle.
+
+    // Step 1: Request the bus so the Z80 stops after this I/O cycle
     set_busrq_pin(PIN_ACTIVE);
+
+    // Step 2: Release WAIT to let the I/O cycle complete
     set_wait_pin(PIN_INACTIVE);
     set_wait_pin_dir(PIN_DIR_OUTPUT);
+
+    // Step 3: Wait for the end of the I/O cycle (IORQ deasserted)
     while (ioreq_pin() == PIN_ACTIVE) {
         ;
     }
+    // Return WAIT to Hi-Z
     set_wait_pin_dir(PIN_DIR_INPUT);
-    if (!io_write) {
+
+    //
+    // MCU owns the bus here
+    //
+
+    // Release data bus for I/O read cycles
+    if (io_read) {
         set_data_dir(PIN_DIR_INPUT);
     }
+
+    // Release BUSRQ to let the Z80 resume execution
     set_busrq_pin(PIN_INACTIVE);
 }
