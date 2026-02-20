@@ -54,8 +54,6 @@ void z80_release_pins(struct z80_pin_state *state)
     state->bank_sel0 = get_pin(BANK_SEL0);
     state->bank_sel1 = get_pin(BANK_SEL1);
 
-    set_pin_dir(Z80_NMI, PIN_DIR_INPUT);
-    set_pin_dir(Z80_INT, PIN_DIR_INPUT);
     set_addr_dir(PIN_DIR_INPUT);
     set_data_dir(PIN_DIR_INPUT);
     set_pin_dir(Z80_RD, PIN_DIR_INPUT);

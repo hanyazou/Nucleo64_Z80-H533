@@ -40,7 +40,7 @@ static struct z80_pin_state g_pin_state;
 void z80_poweron(void)
 {
     // Put all Z80-related GPIOs into Hi-Z to avoid back-powering
-    set_reset_pin(0);
+    set_reset_pin(0);  // Assert ~RESET to hold the Z80 in reset and prevent back-powering
     set_busrq_pin(0);
     set_bank_pins(0);
     z80_release_pins(&g_pin_state);
@@ -57,7 +57,10 @@ void z80_poweron(void)
 void z80_init(void)
 {
     // Reconfigure Z80 control and address pins after power-on
+    // ~RESET was asserted at the beginning of z80_poweron() and remains asserted here
     z80_acquire_pins(&g_pin_state);
+    set_pin(Z80_NMI, PIN_INACTIVE);
+    set_pin(Z80_INT, PIN_INACTIVE);
 
     // Acquire the Z80 bus
     set_busrq_pin(PIN_ACTIVE);
