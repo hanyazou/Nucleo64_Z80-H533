@@ -23,25 +23,17 @@
 
 #pragma once
 
-#include <fatfs/fatfs.h>
-
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct sd_file_drive {
-    unsigned int sectors;
-    FIL *filep;
-};
-extern struct sd_file_drive sd_file_drives[];
-extern const int sd_file_num_drives;
-
-void sd_disk_init(void);
-FIL *sd_disk_get_file(void);
-void sd_disk_put_file(FIL *file);
-bool sd_disk_have_boot_drive(void);
+void disk_file_init(void);
+bool disk_file_have_boot_disk(void);
+bool disk_file_read(uint8_t drive, uint32_t offs, uint8_t *buf, int buf_len);
+bool disk_file_write(uint8_t drive, uint32_t offs, uint8_t *buf, int buf_len);
 
 #ifdef __cplusplus
 }

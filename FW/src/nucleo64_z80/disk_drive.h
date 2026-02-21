@@ -21,30 +21,22 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "msc.h"
-#include "nucleo64_z80.h"
-#include "util.h"
-#include "z80.h"
-#include "disk_drive.h"
+#pragma once
 
-void n64z80_init(void)
-{
-    delay_init();
-    msc_init();
-}
+#include <stdbool.h>
+#include <stdint.h>
 
-void n64z80_thread_entry(ULONG argument)
-{
-    (void)argument;
-    z80_poweron();
-    disk_drive_init();
-    z80_init();
-    z80_run();
-    msc_wait();
-    msc_test();
-}
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-void n64z80_msc_notify(void*dev)
-{
-    msc_notify(dev);
+#define SECTOR_SIZE 128
+
+void disk_drive_init(void);
+bool disk_drive_have_boot_disk(void);
+bool disk_drive_read(uint8_t drive, uint8_t track, uint16_t sector, uint8_t *buf, int buf_len);
+bool disk_drive_write(uint8_t drive, uint8_t track, uint16_t sector, uint8_t *buf, int buf_len);
+
+#ifdef __cplusplus
 }
+#endif

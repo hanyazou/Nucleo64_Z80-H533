@@ -25,7 +25,7 @@
 #include "util.h"
 #include "z80.h"
 #include "z80_pins.h"
-#include "sd_disk.h"
+#include "disk_drive.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -74,7 +74,7 @@ void z80_init(void)
     const uint8_t *rom;
     size_t rom_size;
 
-    if (sd_disk_have_boot_drive()) {
+    if (disk_drive_have_boot_disk()) {
         rom = rom_ipl;
         rom_size = rom_ipl_size;
     } else {

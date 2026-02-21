@@ -23,7 +23,7 @@
 
 #include "nucleo64_z80.h"
 #include "nucleo64_config.h"
-#include "sd_disk.h"
+#include "disk_drive.h"
 #include "util.h"
 #include "z80.h"
 #include "z80_pins.h"
@@ -67,7 +67,6 @@
 #define HW_CTRL_RESET        (1 << 6)
 #define HW_CTRL_HALT         (1 << 7)
 
-#define SECTOR_SIZE      128
 #define DEBUG_DISK 0
 #define DEBUG_DISK_READ 0
 #define DEBUG_DISK_WRITE 0
@@ -115,9 +114,6 @@ static void do_disk_io(void)
 {
     disk->stat = DISK_ST_ERROR;
     uint16_t addr = ((uint16_t)disk->dmah << 8) | disk->dmal;
-    if (sd_file_num_drives <= disk->drive || sd_file_drives[disk->drive].filep == NULL) {
-        goto disk_io_done;
-    }
 
     if (disk->op == DISK_OP_DMA_WRITE) {
         // transfer write data from SRAM to the buffer
@@ -129,22 +125,15 @@ static void do_disk_io(void)
     z80_release_pins(&pin_state);
     sd_spi_acquire();
 
-    FIL *filep = sd_file_drives[disk->drive].filep;
-    uint32_t sector = sector = disk->track * sd_file_drives[disk->drive].sectors + disk->sector - 1;
-    unsigned int n;
-    FRESULT fres;
-    if ((fres = f_lseek(filep, sector * SECTOR_SIZE)) != FR_OK) {
-        printf("f_lseek(): ERROR %d\n\r", fres);
-        goto release_spi_pis;
-    }
     if (disk->op == DISK_OP_DMA_READ || disk->op == DISK_OP_READ) {
         //
         // DISK read
         //
 
         // read from the DISK
-        if ((fres = f_read(filep, disk->buf, SECTOR_SIZE, &n)) != FR_OK || n != SECTOR_SIZE) {
-            printf("f_read(): ERROR res=%d, n=%d\n\r", fres, n);
+        if (!disk_drive_read(disk->drive, disk->track, disk->sector, disk->buf, SECTOR_SIZE)) {
+            printf("%s: read error at %u/%u/%u\n\r", __func__, disk->drive, disk->track,
+                   disk->sector);
             goto release_spi_pis;
         }
 
@@ -176,12 +165,9 @@ static void do_disk_io(void)
         //
 
         // write buffer to the DISK
-        if ((fres = f_write(filep, disk->buf, SECTOR_SIZE, &n)) != FR_OK || n != SECTOR_SIZE) {
-            printf("f_write(): ERROR res=%d, n=%d\n\r", fres, n);
-            goto release_spi_pis;
-        }
-        if ((fres = f_sync(filep)) != FR_OK) {
-            printf("f_sync(): ERROR %d\n\r", fres);
+        if (!disk_drive_write(disk->drive, disk->track, disk->sector, disk->buf, SECTOR_SIZE)) {
+            printf("%s: read error at %u/%u/%u\n\r", __func__, disk->drive, disk->track,
+                   disk->sector);
             goto release_spi_pis;
         }
         disk->stat = DISK_ST_SUCCESS;
@@ -198,9 +184,9 @@ static void do_disk_io(void)
  disk_io_done:
     if ((DEBUG_DISK_READ  && (disk->op == DISK_OP_DMA_READ  || disk->op == DISK_OP_READ )) ||
         (DEBUG_DISK_WRITE && (disk->op == DISK_OP_DMA_WRITE || disk->op == DISK_OP_WRITE))) {
-        printf("DISK: OP=%02x D/T/S=%d/%3d/%3d x%3d=%5ld ADDR=%02x%02x ... ST=%02x\n\r",
+        printf("DISK: OP=%02x D/T/S=%d/%3d/%3d ADDR=%02x%02x ... ST=%02x\n\r",
                disk->op, disk->drive, disk->track, disk->sector,
-               sd_file_drives[disk->drive].sectors, sector, disk->dmah, disk->dmal, disk->stat);
+               disk->dmah, disk->dmal, disk->stat);
     }
 }
 
@@ -248,7 +234,7 @@ void io_handle()
                 }
             } else
             if (DEBUG_DISK) {
-                printf("DISK: OP=%02x D/T/S=%d/%3d/%3d            ADDR=%02x%02x (WR IGNORED)\n\r",
+                printf("DISK: OP=%02x D/T/S=%d/%3d/%3d ADDR=%02x%02x (WR IGNORED)\n\r",
                        disk->op, disk->drive, disk->track, disk->sector, disk->dmah, disk->dmal);
             }
         } else {
@@ -256,7 +242,7 @@ void io_handle()
                 data = *disk->ptr++;
             } else
             if (DEBUG_DISK) {
-                printf("DISK: OP=%02x D/T/S=%d/%3d/%3d            ADDR=%02x%02x (RD IGNORED)\n\r",
+                printf("DISK: OP=%02x D/T/S=%d/%3d/%3d ADDR=%02x%02x (RD IGNORED)\n\r",
                        disk->op, disk->drive, disk->track, disk->sector, disk->dmah, disk->dmal);
             }
         }

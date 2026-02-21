@@ -21,39 +21,27 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include "disk_file.h"
 #include "nucleo64_z80.h"
-#include "sd_disk.h"
 #include "z80_pins.h"
+
+#include <fatfs/fatfs.h>
 
 #include <stdio.h>
 
-struct sd_file_drive sd_file_drives[] = {
-    { 26 },
-    { 26 },
-    { 26 },
-    { 26 },
-    { 0 },
-    { 0 },
-    { 0 },
-    { 0 },
-    { 128 },
-    { 128 },
-    { 128 },
-    { 128 },
-    { 0 },
-    { 0 },
-    { 0 },
-    { 16484 },
-};
-const int sd_file_num_drives = (sizeof(sd_file_drives)/sizeof(*sd_file_drives));
+
+static struct drive {
+    FIL *filep;
+} drives[16] = { };
+static const int num_drives = (sizeof(drives)/sizeof(*drives));
 
 #define NUM_FILES 9
 static FIL files[NUM_FILES];
 static uint16_t file_available = (1 << NUM_FILES) - 1;
 
-static void sd_disk_select(void);
+static void file_select(void);
 
-void sd_disk_init(void)
+void disk_file_init(void)
 {
     MX_FATFS_Init();
 
@@ -61,13 +49,13 @@ void sd_disk_init(void)
     z80_release_pins(&pin_state);
     sd_spi_acquire();
 
-    sd_disk_select();
+    file_select();
 
     sd_spi_release();
     z80_acquire_pins(&pin_state);
 }
 
-FIL *sd_disk_get_file(void)
+FIL *get_file(void)
 {
     for (int i = 0; i < NUM_FILES; i++) {
         if (file_available & (1L << i)) {
@@ -80,7 +68,7 @@ FIL *sd_disk_get_file(void)
     return NULL;
 }
 
-void sd_disk_put_file(FIL *file)
+void put_file(FIL *file)
 {
     for (int i = 0; i < NUM_FILES; i++) {
         if (file == &files[i]) {
@@ -91,12 +79,12 @@ void sd_disk_put_file(FIL *file)
     }
 }
 
-bool sd_disk_have_boot_drive(void)
+bool disk_file_have_boot_disk(void)
 {
-    return (sd_file_drives[0].filep != NULL);
+    return (drives[0].filep != NULL);
 }
 
-static void sd_disk_select(void)
+static void file_select(void)
 {
     int i;
     unsigned int drive;
@@ -178,7 +166,7 @@ static void sd_disk_select(void)
     // Open disk images
     //
     char buf[26];
-    for (drive = 0; drive < sd_file_num_drives; drive++) {
+    for (drive = 0; drive < num_drives; drive++) {
         char drive_letter = (char)('A' + drive);
         sprintf(buf, "%s/DRIVE%c.DSK", fileinfo.fname, drive_letter);
         if (f_stat(buf, NULL) != FR_OK) {
@@ -187,20 +175,62 @@ static void sd_disk_select(void)
                 continue;
             }
         }
-        FIL *filep = sd_disk_get_file();
+        FIL *filep = get_file();
         if (filep == NULL) {
             printf("Too many files\n\r");
             break;
         }
         if (f_open(filep, buf, FA_READ|FA_WRITE) == FR_OK) {
             printf("Image file %s is assigned to drive %c\n\r", buf, drive_letter);
-            sd_file_drives[drive].filep = filep;
+            drives[drive].filep = filep;
         }
     }
-    if (!sd_disk_have_boot_drive()) {
+    if (!disk_file_have_boot_disk()) {
         printf("No boot disk.\n\r");
         return;
     }
 
     return;
+}
+
+bool disk_file_read(uint8_t drive, uint32_t offs, uint8_t *buf, int buf_len) {
+    FIL *filep = drives[drive].filep;
+    unsigned int n;
+    FRESULT fres;
+    if (filep == NULL) {
+        printf("%s: drive=%u: no disk\n\r", __func__, drive);
+        return false;
+    }
+    if ((fres = f_lseek(filep, offs)) != FR_OK) {
+        printf("%s: drive=%u: f_lseek(): ERROR %d\n\r", __func__, drive, fres);
+        return false;
+    }
+    if ((fres = f_read(filep, buf, buf_len, &n)) != FR_OK || n != buf_len) {
+        printf("%s: drive=%u: f_read(): ERROR res=%d, n=%d\n\r", __func__, drive, fres, n);
+        return false;
+    }
+    return true;
+}
+
+bool disk_file_write(uint8_t drive, uint32_t offs, uint8_t *buf, int buf_len) {
+    FIL *filep = drives[drive].filep;
+    unsigned int n;
+    FRESULT fres;
+    if (filep == NULL) {
+        printf("%s: drive=%u: no disk\n\r", __func__, drive);
+        return false;
+    }
+    if ((fres = f_lseek(filep, offs)) != FR_OK) {
+        printf("%s: drive=%u: f_lseek(): ERROR %d\n\r", __func__, drive, fres);
+        return false;
+    }
+    if ((fres = f_write(filep, buf, buf_len, &n)) != FR_OK || n != buf_len) {
+        printf("%s: drive=%u: f_read(): ERROR res=%d, n=%d\n\r", __func__, drive, fres, n);
+        return false;
+    }
+    if ((fres = f_sync(filep)) != FR_OK) {
+        printf("%s: drive=%u: f_sync(): ERROR %d\n\r", __func__, drive, fres);
+        return false;
+    }
+    return true;
 }
