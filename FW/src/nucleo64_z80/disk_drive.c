@@ -23,6 +23,7 @@
 
 #include "disk_drive.h"
 #include "disk_file.h"
+#include "msc.h"
 #include "nucleo64_z80.h"
 
 #include <stdio.h>
@@ -45,11 +46,16 @@ static struct disk_ops file_ops = {
     disk_file_write,
 };
 
+static struct disk_ops msc_ops = {
+    disk_msc_read,
+    disk_msc_write,
+};
+
 static struct drive drives[] = {
     { 26, &file_ops },
     { 26, &file_ops },
-    { 26, &file_ops },
-    { 26, &file_ops },
+    { 26, &msc_ops },
+    { 26, &msc_ops },
     { 0 },
     { 0 },
     { 0 },
@@ -67,6 +73,7 @@ static const int num_drives = (sizeof(drives)/sizeof(*drives));
 
 void disk_drive_init(void) {
     disk_file_init();
+    disk_msc_init();
 }
 
 bool disk_drive_have_boot_disk(void) {

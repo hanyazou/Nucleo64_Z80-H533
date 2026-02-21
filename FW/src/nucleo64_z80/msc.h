@@ -23,6 +23,9 @@
 
 #pragma once
 
+#include <stdbool.h>
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -31,6 +34,11 @@ void msc_init(void);
 void msc_notify(void*dev);
 void msc_wait(void);
 void msc_test(void);
+
+void disk_msc_init(void);
+bool disk_msc_have_boot_disk(void);
+bool disk_msc_read(uint8_t drive, uint32_t offs, uint8_t *buf, int buf_len);
+bool disk_msc_write(uint8_t drive, uint32_t offs, uint8_t *buf, int buf_len);
 
 #ifdef __cplusplus
 }

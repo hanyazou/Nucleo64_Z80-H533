@@ -65,33 +65,18 @@ __attribute__((weak)) UINT ux_host_stack_endpoint_reset(UX_ENDPOINT* endpoint)
  * If/when Bulk IN succeeds consistently, we can re-enable the interrupt status phase.
  */
 
-/* ------------------- Tuning ------------------- */
+#define MSC_BLOCK_SIZE 512u
+#define MSC_TIMEOUT_MS 5000u
+#define MSC_BULK_TRY_TIMEOUT_MS 500u
+#define MSC_POLL_SLEEP_MS 50u
+#define MSC_AUTO_CLEAR_STALL 1 // Auto-recover from STALL by resetting the endpoint (best-effort)
+#define MSC_USE_INT_STATUS 1  // 0: skip INT-IN status phase (disabled for now)
 
-#ifndef MSC_TIMEOUT_MS
-#define MSC_TIMEOUT_MS   (30000u)
-#endif
-
-#ifndef MSC_READ_BLOCK_SIZE
-#define MSC_READ_BLOCK_SIZE 512u
-#endif
-
-#ifndef MSC_BULK_TRY_TIMEOUT_MS
-#define MSC_BULK_TRY_TIMEOUT_MS  500u
-#endif
-
-#ifndef MSC_POLL_SLEEP_MS
-#define MSC_POLL_SLEEP_MS  50u
-#endif
-
-/* Auto-recover from STALL by resetting the endpoint (best-effort). */
-#ifndef MSC_AUTO_CLEAR_STALL
-#define MSC_AUTO_CLEAR_STALL 1
-#endif
-
-/* 0: skip INT-IN status phase (disabled for now) */
-#ifndef MSC_USE_INT_STATUS
-#define MSC_USE_INT_STATUS 0
-#endif
+#define BLOCKING_FACTOR 1
+#define INVALID_LBA 0xffffffffu
+static UCHAR g_cache_buf[MSC_BLOCK_SIZE * BLOCKING_FACTOR];
+static uint32_t g_cache_lba = INVALID_LBA;
+static bool g_dev_prepared = false;
 
 static ULONG ms_to_ticks(ULONG ms)
 {
@@ -168,7 +153,7 @@ static void dump_hex(const char* title, const UCHAR* data, ULONG len)
     }
 }
 
-static void dump_ep(const char *name, UX_ENDPOINT *ep)
+__attribute__ ((unused)) static void dump_ep(const char *name, UX_ENDPOINT *ep)
 {
     const UX_ENDPOINT_DESCRIPTOR *d = &ep->ux_endpoint_descriptor;
     printf("[msc] %s: addr=0x%02X attr=0x%02X maxpkt=%u interval=%u\r\n",
@@ -177,6 +162,52 @@ static void dump_ep(const char *name, UX_ENDPOINT *ep)
            (unsigned)d->bmAttributes,
            (unsigned)d->wMaxPacketSize,
            (unsigned)d->bInterval);
+}
+
+static const char *scsi_sense_key_str(UCHAR key)
+{
+    switch (key & 0x0F) {
+    case 0x0: return "NO SENSE";
+    case 0x1: return "RECOVERED ERROR";
+    case 0x2: return "NOT READY";
+    case 0x3: return "MEDIUM ERROR";
+    case 0x4: return "HARDWARE ERROR";
+    case 0x5: return "ILLEGAL REQUEST";
+    case 0x6: return "UNIT ATTENTION";
+    case 0x7: return "DATA PROTECT";
+    case 0x8: return "BLANK CHECK";
+    case 0x9: return "VENDOR SPECIFIC";
+    case 0xA: return "COPY ABORTED";
+    case 0xB: return "ABORTED COMMAND";
+    case 0xC: return "EQUAL";
+    case 0xD: return "VOLUME OVERFLOW";
+    case 0xE: return "MISCOMPARE";
+    default:  return "SENSE?(unknown)";
+    }
+}
+
+static void scsi_dump_request_sense_fixed18(const char *tag, const UCHAR rs[18])
+{
+    /* SPC fixed format sense: rs[2]=SenseKey, rs[12]=ASC, rs[13]=ASCQ */
+    UCHAR resp_code = rs[0] & 0x7F;
+    UCHAR sk        = rs[2] & 0x0F;
+    UCHAR asc       = rs[12];
+    UCHAR ascq      = rs[13];
+
+    printf("[msc] %s: RS resp=0x%02X SK=0x%X(%s) ASC/ASCQ=%02X/%02X\r\n",
+           tag, (unsigned)resp_code, (unsigned)sk, scsi_sense_key_str(sk),
+           (unsigned)asc, (unsigned)ascq);
+
+    /* Keep the full bytes too (helps when device returns vendor fields). */
+    // dump_hex("REQUEST SENSE (raw)", rs, 18);
+}
+
+static bool scsi_is_no_medium_3a00(const UCHAR rs[18])
+{
+    UCHAR sk   = rs[2] & 0x0F;
+    UCHAR asc  = rs[12];
+    UCHAR ascq = rs[13];
+    return (sk == 0x02) && (asc == 0x3A) && (ascq == 0x00);
 }
 
 static const char *ux_status_str(UINT s)
@@ -314,7 +345,7 @@ static UINT wait_transfer_complete(UX_TRANSFER *t, ULONG timeout_ticks, const ch
         }
 
         /* Optional: print only when state changes (reduces serial spam). */
-        if (cc != last_cc) {
+        if (last_cc != 0xFFFFFFFFu && cc != last_cc) {
             printf("[msc] %s: cc=%s(%u) ...waiting\r\n", tag,
                    ux_status_str(cc), (unsigned)cc);
             last_cc = cc;
@@ -349,8 +380,10 @@ static UINT endpoint_xfer_once(UX_ENDPOINT *ep, UCHAR *buf, ULONG len, ULONG tim
     t->ux_transfer_request_packet_length  = ep->ux_endpoint_descriptor.wMaxPacketSize;
 
     UINT st = ux_host_stack_transfer_request(t);
-    print_xfer(tag, t, st);
-    if (st != UX_SUCCESS) return st;
+    if (st != UX_SUCCESS) {
+        print_xfer(tag, t, st);
+        return st;
+    }
 
     /* Wait for completion_code to settle (avoid busy re-issuing transfers). */
     UINT cc = wait_transfer_complete(t, t->ux_transfer_request_timeout_value, tag);
@@ -392,8 +425,12 @@ static UINT cbi_adsc(UX_DEVICE *dev, UINT ifnum, UCHAR cmdblk[12])
     t->ux_transfer_request_packet_length  = ep0->ux_endpoint_descriptor.wMaxPacketSize;
 
     UINT st = ux_host_stack_transfer_request(t);
-    print_xfer("ADSC(EP0)", t, st);
-    if (st != UX_SUCCESS) return st;
+    if (st != UX_SUCCESS) {
+        char tmp[20];
+        sprintf(tmp, "ADSC(EP0): cmd%x", cmdblk[0]);
+        print_xfer(tmp, t, st);
+        return st;
+    }
     return t->ux_transfer_request_completion_code;
 }
 
@@ -469,15 +506,29 @@ UINT msc_dev_init(DEV_MSC_UFI_CBI *dev, UX_DEVICE *ux_dev)
         return st;
     }
 
-    dump_ep("Bulk OUT", dev->ep_out);
-    dump_ep("Bulk IN ", dev->ep_in);
+    // dump_ep("Bulk OUT", dev->ep_out);
+    // dump_ep("Bulk IN ", dev->ep_in);
 #if MSC_USE_INT_STATUS
-    if (dev->ep_int) dump_ep("Int  IN ", dev->ep_int);
+    // if (dev->ep_int) dump_ep("Int  IN ", dev->ep_int);
 #endif
 
     dev->ifnum = 0;
 
     return UX_SUCCESS;
+}
+
+__attribute__ ((unused)) static UINT msc_dev_soft_reset(DEV_MSC_UFI_CBI *dev)
+{
+    /* Best-effort recovery: re-activate config/interface and re-discover endpoints.
+     * This helps some CBI/UFI devices recover after media-absent or stalled states.
+     */
+    if (dev == UX_NULL || dev->dev == UX_NULL) return UX_ERROR;
+
+    UINT st = activate_config_and_interface(dev->dev, &dev->cfg, &dev->itf);
+    if (st != UX_SUCCESS) return st;
+
+    st = get_cbi_eps(dev->itf, &dev->ep_out, &dev->ep_in, &dev->ep_int);
+    return st;
 }
 
 static UINT cbi_exec_in(DEV_MSC_UFI_CBI *dev, const UCHAR cmdblk_in[12], UCHAR *data,
@@ -506,12 +557,21 @@ static UINT cbi_exec_in(DEV_MSC_UFI_CBI *dev, const UCHAR cmdblk_in[12], UCHAR *
     return UX_SUCCESS;
 }
 
+UINT msc_test_unit_ready(DEV_MSC_UFI_CBI *dev, ULONG timeout_ms)
+{
+    UCHAR ufi[12];
+    ufi_from_cdb6(ufi, 0x00, 0,0,0, 0, 0); /* TEST UNIT READY */
+    return cbi_exec_in(dev, ufi, NULL, 0, timeout_ms);
+}
+
 UINT msc_request_sense(DEV_MSC_UFI_CBI *dev, UCHAR *sense)
 {
     UCHAR ufi[12];
     ufi_from_cdb6(ufi, 0x03, 0,0,0, 18, 0);
     UINT st = cbi_exec_in(dev, ufi, sense, 18, 5000u);
-    printf("[msc] REQUEST SENSE: %s(%u)\r\n", ux_status_str(st), (unsigned)st);
+    if (st != UX_SUCCESS) {
+        printf("[msc] REQUEST SENSE: %s(%u)\r\n", ux_status_str(st), (unsigned)st);
+    }
     return st;
 }
 
@@ -521,7 +581,9 @@ UINT msc_inquiry(DEV_MSC_UFI_CBI *dev, UCHAR *inq)
     ufi_from_cdb6(ufi, 0x12, 0,0,0, 36, 0);
 
     UINT st = cbi_exec_in(dev, ufi, inq, 36, 5000u);
-    printf("[msc] INQUIRY: %s(%u)\r\n", ux_status_str(st), (unsigned)st);
+    if (st != UX_SUCCESS) {
+        printf("[msc] INQUIRY: %s(%u)\r\n", ux_status_str(st), (unsigned)st);
+    }
     return st;
 }
 
@@ -529,19 +591,197 @@ UINT msc_read10(DEV_MSC_UFI_CBI *dev, UINT lba, UINT blocks, UCHAR *buf)
 {
     UCHAR ufi[12];
     UCHAR cdb_read10[10] = { 0x28,0x00, 0,0,0,0, 0, 0,1, 0 };
-    cdb_read10[1] = ((lba >> 24) & 0xff);
-    cdb_read10[2] = ((lba >> 16) & 0xff);
-    cdb_read10[3] = ((lba >>  8) & 0xff);
-    cdb_read10[4] = ((lba >>  0) & 0xff);
+    cdb_read10[2] = ((lba >> 24) & 0xff);
+    cdb_read10[3] = ((lba >> 16) & 0xff);
+    cdb_read10[4] = ((lba >>  8) & 0xff);
+    cdb_read10[5] = ((lba >>  0) & 0xff);
     cdb_read10[7] = ((blocks >> 8) & 0xff);
     cdb_read10[8] = ((blocks >> 0) & 0xff);
+    // dump_hex("msc_read10", cdb_read10, sizeof(cdb_read10));
     ufi_from_cdb10(ufi, cdb_read10);
-    UINT st = cbi_exec_in(dev, ufi, buf, MSC_READ_BLOCK_SIZE * blocks, MSC_TIMEOUT_MS);
-    printf("[msc] READ(10) LBA %u: %s(%u)\r\n", lba, ux_status_str(st), (unsigned)st);
+    UINT st = cbi_exec_in(dev, ufi, buf, MSC_BLOCK_SIZE * blocks, MSC_TIMEOUT_MS);
+    if (st !=  UX_SUCCESS) {
+        printf("[msc] READ(10) LBA %u: %s(%u)\r\n", lba, ux_status_str(st), (unsigned)st);
+    }
     return st;
 }
 
-/* ------------------- Main test ------------------- */
+DEV_MSC_UFI_CBI g_dev = { NULL };
+
+void disk_msc_init(void) {
+    // nothing to do
+}
+
+bool disk_msc_have_boot_disk(void) {
+    return false;
+}
+
+static bool disk_msc_prepair(uint32_t offs) {
+    UINT st;
+    uint32_t lba = (offs / MSC_BLOCK_SIZE / BLOCKING_FACTOR) * BLOCKING_FACTOR;
+    if (g_ux_dev == NULL) {
+        printf("%s: no device\r\n", __func__);
+        g_cache_lba = INVALID_LBA;
+        return false;
+    }
+    if (g_dev.dev != g_ux_dev) {
+        g_cache_lba = INVALID_LBA;
+        g_dev_prepared = false;
+        st = msc_dev_init(&g_dev, g_ux_dev);
+        if (st != UX_SUCCESS) {
+            printf("%s: no device\r\n", __func__);
+            return false;
+        }
+    }
+
+    /* TEST UNIT READY */
+    if (msc_test_unit_ready(&g_dev, 300u) != UX_SUCCESS) {
+        g_cache_lba = INVALID_LBA;
+        g_dev_prepared = false;
+    }
+
+    if (g_cache_lba == lba) return true;
+    if (g_dev_prepared)  return true;
+
+    /* INQUIRY (device identification) */
+    UCHAR inq[36];
+    memset(inq, 0, sizeof(inq));
+    st = msc_inquiry(&g_dev, inq);
+
+    /* REQUEST SENSE (optional, but useful for initial state) */
+    UCHAR rs[18]; memset(rs, 0, sizeof(rs));
+    st = msc_request_sense(&g_dev, rs);
+    if (st != UX_SUCCESS) {
+        printf("%s: REQUEST_SENSE failed\r\n", __func__);
+        return false;
+    }
+    if (scsi_is_no_medium_3a00(rs)) {
+        /* No medium present.
+         * Intentionally fail silently to avoid flooding errors while media is absent.
+         */
+        return false;
+    }
+    // scsi_dump_request_sense_fixed18("initial", rs);
+
+    /* INQUIRY (device identification) */
+    memset(inq, 0, sizeof(inq));
+    st = msc_inquiry(&g_dev, inq);
+    if (st != UX_SUCCESS) {
+        printf("%s: INQUIRY failed\r\n", __func__);
+        return false;
+    }
+    g_dev_prepared = true;
+
+    return true;
+}
+
+char *offs_str(uint32_t offs, char *buf, size_t len) {
+    uint32_t lba = (offs / MSC_BLOCK_SIZE);
+    uint32_t lba_block = (lba / BLOCKING_FACTOR) * BLOCKING_FACTOR;
+    snprintf(buf, len, "0x%lx(%lu+%lu+%lu)", offs, lba_block, lba % BLOCKING_FACTOR,
+            offs - (lba * MSC_BLOCK_SIZE));
+    return buf;
+}
+
+static bool disk_msc_fill(uint8_t drive, uint32_t offs) {
+    uint32_t lba = (offs / MSC_BLOCK_SIZE);
+    uint32_t lba_block = (lba / BLOCKING_FACTOR) * BLOCKING_FACTOR;
+    if (g_cache_lba == lba_block) return true;
+
+    /* READ(10) with a small retry loop.
+     * - On failure, print REQUEST SENSE (decoded) to see why.
+     * - If the endpoint got stalled, endpoint_xfer_once() already did a best-effort reset.
+     */
+    UINT st = UX_ERROR;
+    for (unsigned attempt = 0; attempt < 6; ++attempt) {
+        if (!disk_msc_prepair(offs)) {
+            /*
+             * Ignore error and attempt to read anyway...
+             * the reading may recover the drive status some how
+             */
+            //(void)msc_dev_soft_reset(&g_dev);
+            //continue;
+        }
+        g_cache_lba = INVALID_LBA;
+
+        st = msc_read10(&g_dev, lba_block, BLOCKING_FACTOR, g_cache_buf);
+        if (st == UX_SUCCESS) {
+            g_cache_lba = lba_block;
+            return true;
+        }
+
+        UCHAR rs[18]; memset(rs, 0, sizeof(rs));
+        UINT st_rs = msc_request_sense(&g_dev, rs);
+        if (st_rs == UX_SUCCESS) {
+            scsi_dump_request_sense_fixed18("READ(10) failed", rs);
+        } else {
+            printf("[msc] REQUEST SENSE after READ(10) failed: %s(%u)\r\n",
+                   ux_status_str(st_rs), (unsigned)st_rs);
+        }
+
+        /* Short backoff. 1st retry is usually enough when it's transient. */
+        tx_thread_sleep(ms_to_ticks(50u));
+
+#if 0
+        /* Best-effort recovery: some CBI/UFI devices get stuck after errors
+         * (e.g. media-absent access). Reinitialize the interface/endpoints once,
+         * then retry the READ(10) once.
+         */
+        printf("[msc] attempt to reset...\r\n");
+        (void)msc_dev_soft_reset(&g_dev);
+        st = msc_read10(&g_dev, lba_block, BLOCKING_FACTOR, g_cache_buf);
+        if (st == UX_SUCCESS) {
+            g_cache_lba = lba_block;
+            return true;
+        }
+        tx_thread_sleep(ms_to_ticks(50u));
+#endif
+    }
+
+    char tmp[80];
+    printf("%s: %s: read failed\r\n", __func__, offs_str(offs, tmp, sizeof(tmp)));
+    return false;
+}
+
+static bool disk_msc_writeback(uint8_t drive, uint32_t offs) {
+    //uint32_t lba = (offs / MSC_BLOCK_SIZE);
+    //uint32_t lba_block = (lba / BLOCKING_FACTOR) * BLOCKING_FACTOR;
+
+    // not implemented yet
+    // UINT st = msc_write10(&g_dev, lba, 1, &g_cache_buf[(lba - lba_block) * MSC_BLOCK_SIZE]);
+    // if (st == UX_SUCCESS) return true;
+
+    char tmp[80];
+    printf("%s: %s: write failed\r\n", __func__, offs_str(offs, tmp, sizeof(tmp)));
+    return false;
+}
+
+static uint32_t offs_in_cache(uint32_t offs) {
+    uint32_t lba = (offs / MSC_BLOCK_SIZE);
+    uint32_t lba_block = (lba / BLOCKING_FACTOR) * BLOCKING_FACTOR;
+    return offs - (lba_block * MSC_BLOCK_SIZE);
+}
+
+bool disk_msc_read(uint8_t drive, uint32_t offs, uint8_t *buf, int buf_len) {
+    if (MSC_BLOCK_SIZE < offs % MSC_BLOCK_SIZE + buf_len) {
+        printf("%s: invalid parameter: offs=%lu, len=%d\r\n", __func__, offs, buf_len);
+        return false;
+    }
+    if (!disk_msc_fill(drive, offs)) return false;
+    memcpy(buf, &g_cache_buf[offs_in_cache(offs)], buf_len);
+    return true;
+}
+
+bool disk_msc_write(uint8_t drive, uint32_t offs, uint8_t *buf, int buf_len) {
+    if (MSC_BLOCK_SIZE < offs % MSC_BLOCK_SIZE + buf_len) {
+        printf("%s: invalid parameter: offs=%lu, len=%d\r\n", __func__, offs, buf_len);
+        return false;
+    }
+    if (!disk_msc_fill(drive, offs)) return false;
+    memcpy(&g_cache_buf[offs_in_cache(offs)], buf, buf_len);
+    if (!disk_msc_writeback(drive, offs)) return false;
+    return false;
+}
 
 void msc_test(void)
 {
@@ -569,12 +809,12 @@ void msc_test(void)
 
     /* READ(10) LBA0, 1 block */
     printf("[msc_test] READ(10) ...\r\n");
-    static UCHAR buf[MSC_READ_BLOCK_SIZE];
+    static UCHAR buf[MSC_BLOCK_SIZE];
     memset(buf, 0, sizeof(buf));
     st = msc_read10(&dev, 0, 1, buf);
-    if (st == UX_SUCCESS) dump_hex("SECTOR", buf, MSC_READ_BLOCK_SIZE);
+    if (st == UX_SUCCESS) dump_hex("SECTOR", buf, MSC_BLOCK_SIZE);
     st = msc_read10(&dev, 1, 1, buf);
-    if (st == UX_SUCCESS) dump_hex("SECTOR", buf, MSC_READ_BLOCK_SIZE);
+    if (st == UX_SUCCESS) dump_hex("SECTOR", buf, MSC_BLOCK_SIZE);
     msc_read10(&dev, 200, 1, buf);
     msc_read10(&dev, 500, 1, buf);
     msc_read10(&dev, 2, 1, buf);
