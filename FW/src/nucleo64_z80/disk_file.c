@@ -60,7 +60,7 @@ FIL *get_file(void)
     for (int i = 0; i < NUM_FILES; i++) {
         if (file_available & (1L << i)) {
             file_available &= ~(1L << i);
-            // printf("%s: allocate %d, available=%04x\n\r", __func__, i, file_available);
+            // printf("%s: allocate %d, available=%04x\r\n", __func__, i, file_available);
             return &files[i];
         }
     }
@@ -105,7 +105,7 @@ static void file_select(void)
     //
     fres = f_opendir(&fsdir, "/");
     if (fres  != FR_OK) {
-        printf("Failed to open SD Card (%i)\n\r", fres);
+        printf("Failed to open SD Card (%i)\r\n", fres);
     }
 
     i = 0;
@@ -115,7 +115,7 @@ static void file_select(void)
     while (f_readdir(&fsdir, &fileinfo) == FR_OK && fileinfo.fname[0] != 0) {
         if (strncmp(fileinfo.fname, "CPMDISKS", 8) == 0 ||
             strncmp(fileinfo.fname, "CPMDIS~", 7) == 0) {
-            printf("%d: %s\n\r", i, fileinfo.fname);
+            printf("%d: %s\r\n", i, fileinfo.fname);
             if (strcmp(fileinfo.fname, "CPMDISKS") == 0) {
                 selection = i;
             }
@@ -125,7 +125,7 @@ static void file_select(void)
     if (0 <= preferred) {
         selection = preferred;
     }
-    printf("B: ROM BASIC\n\r");
+    printf("B: ROM BASIC\r\n");
     if (1 < i) {
         if (0 <= selection) {
             printf("Select[%d]: ", selection);
@@ -139,13 +139,13 @@ static void file_select(void)
                 break;
             }
             if (c == 'b' || c == 'B') {
-                printf("B\n\r");
+                printf("B\r\n");
                 return;
             }
             if ((c == 0x0d || c == 0x0a) && 0 <= selection)
                 break;
         }
-        printf("%d\n\r", selection);
+        printf("%d\r\n", selection);
         f_rewinddir(&fsdir);
         i = 0;
         while (f_readdir(&fsdir, &fileinfo) == FR_OK && fileinfo.fname[0] != 0) {
@@ -156,7 +156,7 @@ static void file_select(void)
                 i++;
             }
         }
-        printf("%s is selected.\n\r", fileinfo.fname);
+        printf("%s is selected.\r\n", fileinfo.fname);
     } else {
         strcpy(fileinfo.fname, "CPMDISKS");
     }
@@ -177,16 +177,16 @@ static void file_select(void)
         }
         FIL *filep = get_file();
         if (filep == NULL) {
-            printf("Too many files\n\r");
+            printf("Too many files\r\n");
             break;
         }
         if (f_open(filep, buf, FA_READ|FA_WRITE) == FR_OK) {
-            printf("Image file %s is assigned to drive %c\n\r", buf, drive_letter);
+            printf("Image file %s is assigned to drive %c\r\n", buf, drive_letter);
             drives[drive].filep = filep;
         }
     }
     if (!disk_file_have_boot_disk()) {
-        printf("No boot disk.\n\r");
+        printf("No boot disk.\r\n");
         return;
     }
 
@@ -198,15 +198,15 @@ bool disk_file_read(uint8_t drive, uint32_t offs, uint8_t *buf, int buf_len) {
     unsigned int n;
     FRESULT fres;
     if (filep == NULL) {
-        printf("%s: drive=%u: no disk\n\r", __func__, drive);
+        printf("%s: drive=%u: no disk\r\n", __func__, drive);
         return false;
     }
     if ((fres = f_lseek(filep, offs)) != FR_OK) {
-        printf("%s: drive=%u: f_lseek(): ERROR %d\n\r", __func__, drive, fres);
+        printf("%s: drive=%u: f_lseek(): ERROR %d\r\n", __func__, drive, fres);
         return false;
     }
     if ((fres = f_read(filep, buf, buf_len, &n)) != FR_OK || n != buf_len) {
-        printf("%s: drive=%u: f_read(): ERROR res=%d, n=%d\n\r", __func__, drive, fres, n);
+        printf("%s: drive=%u: f_read(): ERROR res=%d, n=%d\r\n", __func__, drive, fres, n);
         return false;
     }
     return true;
@@ -217,19 +217,19 @@ bool disk_file_write(uint8_t drive, uint32_t offs, uint8_t *buf, int buf_len) {
     unsigned int n;
     FRESULT fres;
     if (filep == NULL) {
-        printf("%s: drive=%u: no disk\n\r", __func__, drive);
+        printf("%s: drive=%u: no disk\r\n", __func__, drive);
         return false;
     }
     if ((fres = f_lseek(filep, offs)) != FR_OK) {
-        printf("%s: drive=%u: f_lseek(): ERROR %d\n\r", __func__, drive, fres);
+        printf("%s: drive=%u: f_lseek(): ERROR %d\r\n", __func__, drive, fres);
         return false;
     }
     if ((fres = f_write(filep, buf, buf_len, &n)) != FR_OK || n != buf_len) {
-        printf("%s: drive=%u: f_read(): ERROR res=%d, n=%d\n\r", __func__, drive, fres, n);
+        printf("%s: drive=%u: f_read(): ERROR res=%d, n=%d\r\n", __func__, drive, fres, n);
         return false;
     }
     if ((fres = f_sync(filep)) != FR_OK) {
-        printf("%s: drive=%u: f_sync(): ERROR %d\n\r", __func__, drive, fres);
+        printf("%s: drive=%u: f_sync(): ERROR %d\r\n", __func__, drive, fres);
         return false;
     }
     return true;

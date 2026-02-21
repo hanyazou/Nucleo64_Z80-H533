@@ -78,7 +78,7 @@ bool disk_drive_read(uint8_t drive, uint8_t track, uint16_t sector, uint8_t *buf
         return false;
     }
     if (buf_len != SECTOR_SIZE) {
-        printf("%s: drive=%u: invalid buf_len (%d)\n\r", __func__, drive, buf_len);
+        printf("%s: drive=%u: invalid buf_len (%d)\r\n", __func__, drive, buf_len);
         return false;
     }
     uint32_t lba = track * drives[drive].sectors + sector - 1;
@@ -90,7 +90,7 @@ bool disk_drive_write(uint8_t drive, uint8_t track, uint16_t sector, uint8_t *bu
         return false;
     }
     if (buf_len != SECTOR_SIZE) {
-        printf("%s: drive=%u: invalid buf_len (%d)\n\r", __func__, drive, buf_len);
+        printf("%s: drive=%u: invalid buf_len (%d)\r\n", __func__, drive, buf_len);
         return false;
     }
     uint32_t lba = track * drives[drive].sectors + sector - 1;

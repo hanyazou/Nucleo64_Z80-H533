@@ -75,7 +75,7 @@ void mem_init()
         mem_write_ram(addr, expected, sizeof(expected));
         mem_read_ram(addr, actual, sizeof(actual));
         if (memcmp(expected, actual, sizeof(expected)) != 0) {
-            printf("\nMemory error at %06lXH\n\r", addr);
+            printf("\nMemory error at %06lXH\r\n", addr);
             util_addrdump("expect: ", addr, expected, sizeof(expected));
             util_addrdump("actual: ", addr, actual, sizeof(actual));
             break;
@@ -106,7 +106,7 @@ void mem_init()
 
         mem_read_ram(addr, actual, sizeof(actual));
         if (memcmp(expected, actual, sizeof(actual)) != 0) {
-            printf("\nMemory error at %06lXH\n\r", addr);
+            printf("\nMemory error at %06lXH\r\n", addr);
             util_addrdump("expect: ", addr, expected, sizeof(expected));
             util_addrdump("actual: ", addr, actual, sizeof(actual));
             while (1);
@@ -131,7 +131,7 @@ void mem_init()
             // Read back from 0x0C000: must match the last write (bank bits ignored here).
             mem_read_ram(addr, actual, sizeof(actual));
             if (memcmp(expected, actual, sizeof(expected)) != 0) {
-                printf("\nMemory error at %06lXH\n\r", addr);
+                printf("\nMemory error at %06lXH\r\n", addr);
                 util_addrdump("expect: ", 0x0c000, expected, sizeof(expected));
                 util_addrdump("actual: ", 0x0c000, actual, sizeof(actual));
                 while (1);
@@ -215,16 +215,16 @@ void mem_read_z80_ram(uint16_t addr, void *buf, unsigned int len)
 void mmu_bank_config(int nbanks)
 {
     #ifdef CPM_MMU_DEBUG
-    printf("mmu_bank_config: %d\n\r", nbanks);
+    printf("mmu_bank_config: %d\r\n", nbanks);
     #endif
     if (mmu_num_banks < nbanks)
-        printf("WARNING: too many banks requested. (request is %d)\n\r", nbanks);
+        printf("WARNING: too many banks requested. (request is %d)\r\n", nbanks);
 }
 
 void mmu_bank_select(int bank)
 {
     #ifdef CPM_MMU_DEBUG
-    printf("mmu_bank_select: %d\n\r", bank);
+    printf("mmu_bank_select: %d\r\n", bank);
     #endif
     if (mmu_bank == bank)
         return;
@@ -235,7 +235,7 @@ void mmu_bank_select(int bank)
         #endif
         {
             first_time = 0;
-            printf("ERROR: bank %d is not available.\n\r", bank);
+            printf("ERROR: bank %d is not available.\r\n", bank);
         }
     }
     mmu_bank = bank;

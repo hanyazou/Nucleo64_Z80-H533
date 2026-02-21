@@ -101,11 +101,11 @@ static void hw_ctrl_write(uint8_t val)
         return;
     }
     if (val & HW_CTRL_RESET) {
-        printf("\n\rReset by IO port %02XH\n\r", HW_CTRL);
+        printf("\r\nReset by IO port %02XH\r\n", HW_CTRL);
         HAL_NVIC_SystemReset();
     }
     if (val & HW_CTRL_HALT) {
-        printf("\n\rHALT by IO port %02XH\n\r", HW_CTRL);
+        printf("\r\nHALT by IO port %02XH\r\n", HW_CTRL);
         while (1);
     }
 }
@@ -132,7 +132,7 @@ static void do_disk_io(void)
 
         // read from the DISK
         if (!disk_drive_read(disk->drive, disk->track, disk->sector, disk->buf, SECTOR_SIZE)) {
-            printf("%s: read error at %u/%u/%u\n\r", __func__, disk->drive, disk->track,
+            printf("%s: read error at %u/%u/%u\r\n", __func__, disk->drive, disk->track,
                    disk->sector);
             goto release_spi_pis;
         }
@@ -166,7 +166,7 @@ static void do_disk_io(void)
 
         // write buffer to the DISK
         if (!disk_drive_write(disk->drive, disk->track, disk->sector, disk->buf, SECTOR_SIZE)) {
-            printf("%s: read error at %u/%u/%u\n\r", __func__, disk->drive, disk->track,
+            printf("%s: read error at %u/%u/%u\r\n", __func__, disk->drive, disk->track,
                    disk->sector);
             goto release_spi_pis;
         }
@@ -184,7 +184,7 @@ static void do_disk_io(void)
  disk_io_done:
     if ((DEBUG_DISK_READ  && (disk->op == DISK_OP_DMA_READ  || disk->op == DISK_OP_READ )) ||
         (DEBUG_DISK_WRITE && (disk->op == DISK_OP_DMA_WRITE || disk->op == DISK_OP_WRITE))) {
-        printf("DISK: OP=%02x D/T/S=%d/%3d/%3d ADDR=%02x%02x ... ST=%02x\n\r",
+        printf("DISK: OP=%02x D/T/S=%d/%3d/%3d ADDR=%02x%02x ... ST=%02x\r\n",
                disk->op, disk->drive, disk->track, disk->sector,
                disk->dmah, disk->dmal, disk->stat);
     }
@@ -234,7 +234,7 @@ void io_handle()
                 }
             } else
             if (DEBUG_DISK) {
-                printf("DISK: OP=%02x D/T/S=%d/%3d/%3d ADDR=%02x%02x (WR IGNORED)\n\r",
+                printf("DISK: OP=%02x D/T/S=%d/%3d/%3d ADDR=%02x%02x (WR IGNORED)\r\n",
                        disk->op, disk->drive, disk->track, disk->sector, disk->dmah, disk->dmal);
             }
         } else {
@@ -242,7 +242,7 @@ void io_handle()
                 data = *disk->ptr++;
             } else
             if (DEBUG_DISK) {
-                printf("DISK: OP=%02x D/T/S=%d/%3d/%3d ADDR=%02x%02x (RD IGNORED)\n\r",
+                printf("DISK: OP=%02x D/T/S=%d/%3d/%3d ADDR=%02x%02x (RD IGNORED)\r\n",
                        disk->op, disk->drive, disk->track, disk->sector, disk->dmah, disk->dmal);
             }
         }
@@ -282,7 +282,7 @@ void io_handle()
             }
             if ((DEBUG_DISK_READ  && (disk->op == DISK_OP_DMA_READ  || disk->op == DISK_OP_READ )) ||
                 (DEBUG_DISK_WRITE && (disk->op == DISK_OP_DMA_WRITE || disk->op == DISK_OP_WRITE))) {
-                printf("DISK: OP=%02x D/T/S=%d/%3d/%3d            ADDR=%02x%02x ... \n\r",
+                printf("DISK: OP=%02x D/T/S=%d/%3d/%3d            ADDR=%02x%02x ... \r\n",
                        disk->op, disk->drive, disk->track, disk->sector, disk->dmah, disk->dmal);
             }
             io_handled = true;
