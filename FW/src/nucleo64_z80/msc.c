@@ -405,7 +405,7 @@ static UINT endpoint_xfer_once(UX_ENDPOINT *ep, UCHAR *buf, ULONG len, ULONG tim
     return t->ux_transfer_request_completion_code;
 }
 
-static UINT cbi_adsc(UX_DEVICE *dev, UINT ifnum, UCHAR cmdblk[12])
+static UINT cbi_adsc(UX_DEVICE *dev, UINT ifnum, UCHAR cmdblk[12], bool quiet)
 {
     UX_ENDPOINT *ep0 = &dev->ux_device_control_endpoint;
     UX_TRANSFER *t = &ep0->ux_endpoint_transfer_request;
@@ -426,9 +426,11 @@ static UINT cbi_adsc(UX_DEVICE *dev, UINT ifnum, UCHAR cmdblk[12])
 
     UINT st = ux_host_stack_transfer_request(t);
     if (st != UX_SUCCESS) {
-        char tmp[20];
-        sprintf(tmp, "ADSC(EP0): cmd%x", cmdblk[0]);
-        print_xfer(tmp, t, st);
+        if (!quiet) {
+            char tmp[20];
+            sprintf(tmp, "ADSC(EP0): cmd%x", cmdblk[0]);
+            print_xfer(tmp, t, st);
+        }
         return st;
     }
     return t->ux_transfer_request_completion_code;
@@ -532,12 +534,12 @@ __attribute__ ((unused)) static UINT msc_dev_soft_reset(DEV_MSC_UFI_CBI *dev)
 }
 
 static UINT cbi_exec_in(DEV_MSC_UFI_CBI *dev, const UCHAR cmdblk_in[12], UCHAR *data,
-                        ULONG data_len, ULONG overall_timeout_ms)
+                        ULONG data_len, ULONG overall_timeout_ms, bool quiet)
 {
     UCHAR cmdblk[12];
     memcpy(cmdblk, cmdblk_in, 12);
 
-    UINT st = cbi_adsc(dev->dev, dev->ifnum, cmdblk);
+    UINT st = cbi_adsc(dev->dev, dev->ifnum, cmdblk, quiet);
     if (st != UX_SUCCESS) return st;
 
     if (data && data_len) {
@@ -561,14 +563,14 @@ UINT msc_test_unit_ready(DEV_MSC_UFI_CBI *dev, ULONG timeout_ms)
 {
     UCHAR ufi[12];
     ufi_from_cdb6(ufi, 0x00, 0,0,0, 0, 0); /* TEST UNIT READY */
-    return cbi_exec_in(dev, ufi, NULL, 0, timeout_ms);
+    return cbi_exec_in(dev, ufi, NULL, 0, timeout_ms, /* quiet */ true);
 }
 
 UINT msc_request_sense(DEV_MSC_UFI_CBI *dev, UCHAR *sense)
 {
     UCHAR ufi[12];
     ufi_from_cdb6(ufi, 0x03, 0,0,0, 18, 0);
-    UINT st = cbi_exec_in(dev, ufi, sense, 18, 5000u);
+    UINT st = cbi_exec_in(dev, ufi, sense, 18, 5000u, /* quiet */ false);
     if (st != UX_SUCCESS) {
         printf("[msc] REQUEST SENSE: %s(%u)\r\n", ux_status_str(st), (unsigned)st);
     }
@@ -580,7 +582,7 @@ UINT msc_inquiry(DEV_MSC_UFI_CBI *dev, UCHAR *inq)
     UCHAR ufi[12];
     ufi_from_cdb6(ufi, 0x12, 0,0,0, 36, 0);
 
-    UINT st = cbi_exec_in(dev, ufi, inq, 36, 5000u);
+    UINT st = cbi_exec_in(dev, ufi, inq, 36, 5000u, /* quiet */ false);
     if (st != UX_SUCCESS) {
         printf("[msc] INQUIRY: %s(%u)\r\n", ux_status_str(st), (unsigned)st);
     }
@@ -599,7 +601,8 @@ UINT msc_read10(DEV_MSC_UFI_CBI *dev, UINT lba, UINT blocks, UCHAR *buf)
     cdb_read10[8] = ((blocks >> 0) & 0xff);
     // dump_hex("msc_read10", cdb_read10, sizeof(cdb_read10));
     ufi_from_cdb10(ufi, cdb_read10);
-    UINT st = cbi_exec_in(dev, ufi, buf, MSC_BLOCK_SIZE * blocks, MSC_TIMEOUT_MS);
+    UINT st = cbi_exec_in(dev, ufi, buf, MSC_BLOCK_SIZE * blocks, MSC_TIMEOUT_MS,
+                          /* quiet */ false);
     if (st !=  UX_SUCCESS) {
         printf("[msc] READ(10) LBA %u: %s(%u)\r\n", lba, ux_status_str(st), (unsigned)st);
     }

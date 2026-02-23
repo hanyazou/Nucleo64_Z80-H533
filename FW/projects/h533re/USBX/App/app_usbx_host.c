@@ -187,7 +187,7 @@ UINT ux_host_event_callback(ULONG event, UX_HOST_CLASS *current_class, VOID *cur
     case UX_DEVICE_CONNECTION:
 
       /* USER CODE BEGIN UX_DEVICE_CONNECTION */
-      printf("%s: UX_DEVICE_CONNECTION\r\n", __func__);
+      // printf("%s: UX_DEVICE_CONNECTION\r\n", __func__);
       print_device_desc((UX_DEVICE *)current_instance);
       n64z80_msc_notify(current_instance);
 
@@ -242,7 +242,6 @@ VOID ux_host_error_callback(UINT system_level, UINT system_context, UINT error_c
     case UX_DEVICE_ENUMERATION_FAILURE:
 
       /* USER CODE BEGIN UX_DEVICE_ENUMERATION_FAILURE */
-      printf("%s: UX_DEVICE_ENUMERATION_FAILURE\r\n", __func__);
 
       /* USER CODE END UX_DEVICE_ENUMERATION_FAILURE */
 
@@ -278,7 +277,7 @@ VOID ux_host_error_callback(UINT system_level, UINT system_context, UINT error_c
     case TX_WAIT_ERROR:
       break;
     case UX_DEVICE_ENUMERATION_FAILURE:
-      printf("%s: UX_DEVICE_ENUMERATION_FAILURE\r\n", __func__);
+      // printf("%s: UX_DEVICE_ENUMERATION_FAILURE\r\n", __func__);
       break;
     case UX_ENDPOINT_HANDLE_UNKNOWN:
       printf("%s: UX_ENDPOINT_HANDLE_UNKNOWN\r\n", __func__);
@@ -298,15 +297,12 @@ static void print_device_desc(const UX_DEVICE *dev)
 {
     const UX_DEVICE_DESCRIPTOR *d = &dev->ux_device_descriptor;
 
-    printf("Device Descriptor:\r\n");
-    printf("  VID: %04x\r\n", d->idVendor);
-    printf("  PID: %04x\r\n", d->idProduct);
-    printf("  bcdUSB: %04x\r\n", d->bcdUSB);
-    printf("  bDeviceClass/Sub/Prot: %02x/%02x/%02x\r\n",
-           d->bDeviceClass, d->bDeviceSubClass, d->bDeviceProtocol);
-    printf("  bMaxPacketSize0: %u\r\n", d->bMaxPacketSize0);
-    printf("  iMfr/iProd/iSN: %u/%u/%u\r\n",
-           d->iManufacturer, d->iProduct, d->iSerialNumber);
+    printf("USB Device id=%04x:%04x, bDeviceClass/Sub/Prot=%02x/%02x/%02x\r\n",
+           d->idVendor, d->idProduct, d->bDeviceClass, d->bDeviceSubClass, d->bDeviceProtocol);
+    // printf("  bcdUSB: %04x\r\n", d->bcdUSB);
+    // printf("  bMaxPacketSize0: %u\r\n", d->bMaxPacketSize0);
+    // printf("  iMfr/iProd/iSN: %u/%u/%u\r\n",
+    //        d->iManufacturer, d->iProduct, d->iSerialNumber);
 }
 
 /* USER CODE END 1 */

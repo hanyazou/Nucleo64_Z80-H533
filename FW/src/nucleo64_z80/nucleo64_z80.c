@@ -21,11 +21,12 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include "disk_drive.h"
 #include "msc.h"
 #include "nucleo64_z80.h"
 #include "util.h"
+#include "tx_api.h"
 #include "z80.h"
-#include "disk_drive.h"
 
 void n64z80_init(void)
 {
@@ -36,6 +37,10 @@ void n64z80_init(void)
 void n64z80_thread_entry(ULONG argument)
 {
     (void)argument;
+
+    // give a change USB thread to show USB FDD drive xxx
+    tx_thread_sleep(5000/TX_TIMER_TICKS_PER_SECOND);
+
     z80_poweron();
     disk_drive_init();
     z80_init();
