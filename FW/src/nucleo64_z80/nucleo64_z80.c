@@ -1,0 +1,55 @@
+/*
+ * Copyright (c) 2026 @hanyazou
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+ * LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+#include "disk_drive.h"
+#include "msc.h"
+#include "nucleo64_z80.h"
+#include "util.h"
+#include "tx_api.h"
+#include "z80.h"
+
+void n64z80_init(void)
+{
+    delay_init();
+    msc_init();
+}
+
+void n64z80_thread_entry(ULONG argument)
+{
+    (void)argument;
+
+    // give a change USB thread to show USB FDD drive xxx
+    tx_thread_sleep(5000/TX_TIMER_TICKS_PER_SECOND);
+
+    z80_poweron();
+    disk_drive_init();
+    z80_init();
+    z80_run();
+    msc_wait();
+    msc_test();
+}
+
+void n64z80_msc_notify(void*dev)
+{
+    msc_notify(dev);
+}

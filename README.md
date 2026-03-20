@@ -1,21 +1,28 @@
-# Nucleo64 Z80
+# Nucleo64 Z80 H533
 
-Nucleo64 Z80 is a Z80 expansion board for the STM32 Nucleo 64 board.
-It adds a Z80 CPU and SRAM to the Nucleo.
-The Z80's I/O access is handled by the STM32 MCU on the Nucleo.
+Nucleo64 Z80 H533 is a Z80 expansion board for the STM32 NUCLEO-H533RE that lets you run a real Z80 system with Microsoft BASIC and CP/M.
+
+It combines a physical Z80 CPU, SRAM, and an STM32H533, which handles the I/O side at high speed.
+With a microSD card, the board can boot CP/M directly, and it can even access a real USB floppy disk drive experimentally.
+
+If you enjoy retro computers, homebrew hardware, or classic 8-bit systems, this board is a compact way to build and explore a modern Z80 machine.
+
+Compared with the earlier <a href="https://github.com/hanyazou/Nucleo64_Z80">Nucleo64 Z80 project</a>,
+this version provides faster I/O handling and adds a USB interface.
 
 ## Features
 
-- Simple 2-chip configuration with Z80 and SRAM, no additional logic IC needed
-- Board test firmware includes Microsoft BASIC
-- Faster Z80 CPU execution (clock up to 20MHz)
-- I2C and SPI devices can be used with the Z80 (custom firmware required)
+- Simple two-chip Z80 section using a Z80 CPU and SRAM
+- Firmware includes Microsoft BASIC and an IPL (Initial Program Loader)
+- Higher Z80 clock speed, up to 20 MHz
+- microSD card over SPI for use as CP/M floppy disk images
+- Experimental support for a real floppy disk drive over USB
 
-The Nucleo64 Z80 is derived from satoshiokue's MEZ80RAM and SuperMEZ80-CPM.
+This project is derived from satoshiokue's MEZ80RAM and SuperMEZ80-CPM.
 
 ## Appearance
 
-The white boards in the following pictures are the Nucleo64 Z80.
+The white boards shown in the following pictures are the Nucleo64 Z80 H533.
 
 <img src="images/nucleo64_z80.png" alt="" width="98%">
 
@@ -23,60 +30,167 @@ The white boards in the following pictures are the Nucleo64 Z80.
 
 <img src="images/block-diagram.png" alt="" width="98%">
 
+For more details, see the <a href="schematic.pdf">schematic (PDF)</a>.
+
 ## Required Components
 
 <img src="images/z80-and-sram.png" alt="" width="48%">
-<img src="images/components.png" alt="" width="48%">
 
 ### ICs
 
-- U3 Z80 (DIP 40 pin) *1
-- U2 AS6C4008-55 SRAM 4Mbit (DIP 32 pin) *2
+- U3 Z80, DIP-40, x1
+- U2 AS6C4008-55 SRAM, 4 Mbit, DIP-32, x2
 
-### Through-hole Components
+A Z80C0004 (4 MHz) or faster device is recommended.  
+If you do not plan to run CP/M 3.0, even 512 Kbit (64 KB) SRAM may be sufficient.   
 
-- U3 IC socket (DIP 40 pin)
-- U2 IC socket (DIP 32 pin)
-- C1, C2 Capacitors 0.1uF
-- R1 Resistor 200 ohms
-- J4, J5 Pin headers (0.1" pitch 19x2 pin)
-- D3, D4, D5 LEDs
-- R6, R7, R8 Resistors 100 ohms 1/4W (resistor value may vary depending on the LED)
+### Through-Hole Components
+
+<img src="images/components.png" alt="" width="48%">
+
+- U3 IC socket, DIP-40
+- U2 IC socket, DIP-32
+- C2, C3 0.1 uF ceramic capacitors
+- C4 10 uF electrolytic capacitor
+- R1 200 ohm, 1/6 W resistor
+- R7, R8 100 ohm, 1/4 W resistors
+- D3, D4 LEDs
+- CN7, CN10 2x19 female pin sockets, 0.1 inch pitch
+
+The resistor value for R7 and R8 may need to be adjusted depending on the LEDs you use.
+
+### Surface-Mount Components
+
+- U4 TPS22917DBV load switch, SOT-23-6 *3
+- U5 74HCT153D, SOP-16 *4
+- C1, C5 0.1 uF capacitors, 0603
+- R2, R3 10 k ohm resistors, 0603
+
+*3) This load switch turns the Z80-side power on and off from the STM32H533.  
+It helps prevent 5 V from feeding back into the STM32 I/O pins and potentially damaging the MCU.  
+The board may still work if 5 V and VCC are tied directly together, but that carries some risk to the STM32 and is not recommended.
+
+*4) This logic IC is used for bank switching.  
+If you do not need CP/M 3.0 support, you can omit U5 and short JP1 and JP2 instead.
 
 ### Optional Components
 
-- J3 SH 1.0 JST 4 pin connector *3
-- J4, J5 Pin sockets (0.1" pitch 6x1 pin) *4
+<img src="images/microSD-card-slot.png" alt="" width="48%">
 
-*1) Z80C0004 (4MHz) or higher recommended  
-*2) 512Kbit (64KB) might be sufficient  
-*3) For I2C Qwiic devices  
-*4) For the micro SD card slot, use the one for ARM Arduino as shown on the following page:  
+- J1, J2 1x20 pin headers, 0.1 inch pitch
+- J3 JST SH 1.0 mm 4-pin connector
+- J4 1x6 female pin socket, 0.1 inch pitch
+
+J4 is for I2C Qwiic devices.  
+For the microSD card slot, use the ARM/Arduino-compatible type shown on the following page:  
 https://www.amazon.com/dp/B0B7WZQVHS
 
-## Build Instructions
+## Assembly Notes
 
-With fewer components, assembly is straightforward.
-Solder all components except the 19x2 pin headers first, then solder the pin headers last.
+With the small number of parts, assembly is straightforward.
+Solder all components except the 2x19 pin headers first, then solder the pin headers last.
 
 <img src="images/nucleo64_z80-3.png" alt="" width="98%">
 
-## Board Test Firmware
+The 74HCT153 and TPS22917 parts I used had markings that made pin 1 orientation hard to identify.
+The following photos show the orientation I used during assembly.
 
-The `FW/board_test` folder contains a test firmware project for STM32 CubeIDE.
-The current target is STM32 Nucleo-64 STM32L476RG.
+<p align="center">
+  <img src="images/74HCT153-dir.png" alt="" width="48%">
+  <img src="images/TPS22917-dir.png" alt="" width="48%">
+</p>
 
-This firmware includes Microsoft BASIC.
-When the Z80 runs at 20 MHz, executing ASCIIARTM.BAS takes 61 seconds.
+## NUCLEO Board Modification
 
-<img src="images/test-firmware-basic.png" alt="" width="98%">
-<img src="images/test-firmware-asciiart.png" alt="" width="98%">
+ST occasionally revises Nucleo boards, and the hardware details can change slightly between revisions.
+The board used here is marked:
 
-The Z80 clock is generated by TIM5 in the STM32 L476RG.
-The prescaler of TIM5 is set to 10 - 1, so the Z80 runs at 4 MHz, which is 1/20 of the system clock (80 MHz).
-If you change the prescaler to 1, the clock will be 20 MHz.
+`NUCLEO-H533RE NUH533RE$KR2 MB1814-H533RE-C02`
 
-<img src="images/CubeMX-clock-prescaler.png" alt="" width="98%">
+At the time of writing, there does not appear to be another NUCLEO-H533 variant.
+
+On MB1814-H533RE-C02, GPIO pins PC14 and PC15 are connected to the OSC32 low-speed clock circuitry and are not routed to the Morpho connectors by default.
+This project uses PC14 and PC15, so you need to rework the solder bridges:
+
+- Remove SB30 and SB31
+- Bridge SB29 and SB32
+
+<p align="center">
+  <img src="images/schematic-sb29-32.png" alt="" width="50%">
+  <img src="images/nucleo-sb29-32.png" alt="" width="38%">
+</p>
+
+## Board Firmware
+
+The `FW/projects/h533re` folder contains a STM32 firmware project for STM32CubeIDE.
+The current target is the NUCLEO-H533RE.
+
+The firmware includes Microsoft BASIC and an IPL.
+
+<img src="images/test-firmware-basic.png" alt="" width="48.5%">
+
+### Change Z80 clock speed
+
+The Z80 clock is generated by TIM2 in the STM32H533.
+With a 248 MHz timer clock and a TIM2 counter period of 247, the output clock is 1 MHz, so the Z80 runs at 1 MHz.
+
+If you change the counter period to 12, the Z80 clock becomes about 20 MHz.
+In that case, the pulse value should be set to half of the counter period.
+At 20 MHz, running `ASCIIARTM.BAS` takes about 60 seconds.
+
+<p align="center">
+  <img src="images/CubeMX-counter-period.png" alt="" width="49%">
+  <img src="images/test-firmware-asciiart.png" alt="" width="47%">
+</p>
+
+## Booting CP/M
+
+You can run CP/M on the Z80 by connecting a microSD card slot to the SPI interface, writing a CP/M-80 disk image to the microSD card, and booting the board with that card inserted.
+
+The disk images from <a href="https://github.com/hanyazou/SuperMEZ80">hanyazou/SuperMEZ80</a> can be used as-is.
+
+<img src="images/test-firmware-cpm80-2.2.png" alt="" width="47%">
+
+## Connecting a Floppy Disk Drive
+
+<img src="images/nucleo64_z80-fdd.png" alt="" width="98%">
+
+The STM32H533 has USB host capability.
+In the photo above, a USB floppy disk drive is connected to the Nucleo board, and CP/M-80 is accessing the floppy disk.
+
+Video: <a href="https://www.youtube.com/watch?v=yQrmxK0HUM0">YouTube</a>
+
+In that video, CP/M boots from the microSD card as drive A:, and then displays the file list on the floppy disk drive assigned as drive C:.
+You can also hear the drive access sounds.
+
+The NUCLEO-H533RE board does not explicitly advertise USB host support, but it can operate as a USB host if 5 V is supplied to VBUS at the user USB connector.
+
+The firmware has been tested experimentally with the following USB floppy disk drive, purchased from
+<a href="https://amzn.asia/d/04LAehW9">Amazon.co.jp</a>:
+
+- TEAC USB floppy disk drive
+- Current support is read-only
+
+```
+Device VendorID/ProductID: 0x0644/0x0000 (TEAC Corporation)
+Manufacturer String:      1 "TEACV0.0"
+Product String:           2 "TEACV0.0"
+```
+
+To supply 5 V to VBUS from the USB Type-C connector, short both settings in the NUCLEO power source selection header `JP5`:
+
+- `5V_STLK` to power the STM32 side from the ST-LINK 5 V supply
+- `VBUSC` to route power to the user USB connector `CN3`
+
+With both jumpers set, the ST-LINK 5 V supply is fed to `CN3` VBUS.
+
+Be careful here: if you connect `CN3` to a PC or any other device that also drives 5 V onto VBUS in this configuration, you could damage the Nucleo board, the connected device, or both.
+Do not connect `CN3` to a host PC while this power configuration is in place.
+
+<p align="center">
+  <img src="images/nucleo-power-setting.png" alt="" width="57%">
+  <img src="images/nucleo-usb-power.png" alt="" width="41.4%">
+</p>
 
 ## References
 
@@ -92,6 +206,16 @@ https://vintagechips.wordpress.com/2022/03/05/emuz80_reference/
 
 https://github.com/satoshiokue/MEZ80RAM
 
-### NUCLEO-L476RG
+### Nucleo STM32H533RE
 
-https://www.st.com/en/evaluation-tools/nucleo-l476rg.html
+#### Board
+
+https://www.st.com/en/evaluation-tools/nucleo-h533re.html
+
+#### Schematic
+
+<a href="https://www.st.com/content/ccc/resource/technical/layouts_and_diagrams/schematic_pack/group2/58/61/64/9a/03/20/4f/84/mb1814-h533re-c02-schematic/files/mb1814-h533re-c02-schematic.pdf/jcr:content/translations/en.mb1814-h533re-c02-schematic.pdf">MB1814</a>
+
+#### User Manual
+
+<a href="https://www.st.com/content/ccc/resource/technical/document/user_manual/group2/86/81/52/e6/5d/f1/46/9e/DM00941891/files/DM00941891.pdf/jcr:content/translations/en.DM00941891.pdf">UM3121</a>

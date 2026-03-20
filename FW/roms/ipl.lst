@@ -1,0 +1,144 @@
+              	; --------------------------------------
+              	; zasm: assemble "ipl.asm"
+              	; opts: --reqcolon
+              	; date: 2026-02-07 17:26:19
+              	; --------------------------------------
+
+
+              	;	CP/M 2.2 boot-loader for Z80-Simulator
+              	;
+              	;	Copyright (C) 1988-2007 by Udo Munk
+              	;
+              	;Permission is hereby granted, free of charge, to any person
+              	;obtaining a copy of this software and associated documentation
+              	;files (the "Software"), to deal in the Software without
+              	;restriction, including without limitation the rights to use,
+              	;copy, modify, merge, publish, distribute, sublicense, and/or sell
+              	;copies of the Software, and to permit persons to whom the
+              	;Software is furnished to do so, subject to the following
+              	;conditions:
+              	;
+              	;The above copyright notice and this permission notice shall be
+              	;included in all copies or substantial portions of the Software.
+              	;
+              	;THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+              	;EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+              	;OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+              	;NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+              	;HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+              	;WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+              	;FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+              	;OTHER DEALINGS IN THE SOFTWARE.
+              	;
+0000:         		ORG	0		;mem base of boot
+              		.include "io_asm.inc"
+              	;	Common definitions for Z80-Simulator
+              	;
+              	;	Copyright (C) 1988-2007 by Udo Munk
+              	;
+              	;
+              	;	SuperMEZ80 I/O ports
+              	;
+0000:         	CONSTA		EQU	0		;console status port
+0001:         	CONDAT		EQU	1		;console data port
+0002:         	PRTSTA		EQU	2		;printer status port
+0003:         	PRTDAT		EQU	3		;printer data port
+0005:         	AUXDAT		EQU	5		;auxiliary data port
+0008:         	FDCDAT		EQU	8		;fdc-port: # of drive
+000A:         	FDCD		EQU	10		;fdc-port: # of drive
+000B:         	FDCT		EQU	11		;fdc-port: # of track
+000C:         	FDCS		EQU	12		;fdc-port: # of sector
+000D:         	FDCOP		EQU	13		;fdc-port: command
+0000:         			D_DMA_READ	EQU	0
+0001:         			D_DMA_WRITE	EQU	1
+0002:         			D_READ		EQU	2
+0003:         			D_WRITE		EQU	3
+000E:         	FDCST		EQU	14		;fdc-port: status
+0000:         			D_SUCCESS	EQU	0
+0001:         			D_ERROR		EQU	1
+000F:         	DMAL		EQU	15		;dma-port: dma address low
+0010:         	DMAH		EQU	16		;dma-port: dma address high
+0014:         	MMU_INIT	EQU	20		;14h MMU initialisation
+0015:         	MMU_BANK_SEL	EQU	21		;15h MMU bank select
+0016:         	MMU_SEG_SIZE	EQU	22		;16h MMU select segment size (in pages a 256 bytes)
+0017:         	MMU_WR_PROT	EQU	23		;17h MMU write protect/unprotect common memory segment
+000A:         	DRIVE   EQU	FDCD
+000B:         	TRACK   EQU	FDCT
+000C:         	SECTOR  EQU	FDCS
+              	;
+0000:         	BOOT:
+0000: C39600  		JP	COLD
+0003: 43502F4D	HLOMSG:	DEFM	'CP/M boot-loader for Z80-Simulator'
+0007: 20626F6F	
+000B: 742D6C6F	
+000F: 61646572	
+0013: 20666F72	
+0017: 205A3830	
+001B: 2D53696D	
+001F: 756C6174	
+0023: 6F72    	
+0025: 0D0A00  		DEFB	13,10,0
+0028: 00000000		DEFS	128 - $, 0
+002C: 00...   	
+              	;
+0080: 424F4F54	ERRMSG:	DEFM	'BOOT: error booting'
+0084: 3A206572	
+0088: 726F7220	
+008C: 626F6F74	
+0090: 696E67  	
+0093: 0D0A00  		DEFB	13,10,0
+              	;
+              	;	begin the load operation
+              	;
+0096:         	COLD:
+0096: 210300  		LD	HL,HLOMSG
+0099:         	PRTMSG0:
+0099: 7E      		LD	A,(HL)
+009A: D301    		OUT	(CONDAT),A
+009C: 23      		INC	HL
+009D: B7      		OR	A
+009E: C29900  		JP	NZ,PRTMSG0
+              	
+00A1: ED46    		IM	0		;select interrupt mode 0
+00A3: FB      		EI			;eneble interrupt
+              	
+00A4: 010100  		LD	BC,1		;b=track 0, c=sector 1
+00A7: 210000  		LD	HL,BOOT		;base transfer address
+00AA: AF      		XOR	A		;select drive A
+00AB: D30A    		OUT	(DRIVE),A
+00AD: 78      	LSECT:	LD	A,B		;set track
+00AE: D30B    		OUT	(TRACK),A
+00B0: 79      		LD	A,C		;set sector
+00B1: D30C    		OUT	(SECTOR),A
+00B3: 7D      		LD	A,L		;set dma address low
+00B4: D30F    		OUT	(DMAL),A
+00B6: 7C      		LD	A,H		;set dma address high
+00B7: D310    		OUT	(DMAH),A
+00B9: AF      		XOR	A		;read sector
+00BA: D30D    		OUT	(FDCOP),A
+00BC: DB0E    		IN	A,(FDCST)	;get status of fdc
+00BE: B7      		OR	A		;read successful ?
+00BF: CA0000  		JP	Z,BOOT		;yes, continue
+              	
+00C2: C630    		ADD	A,'0'		;print error status
+00C4: D301    		OUT	(CONDAT),A
+00C6: 3E0D    		LD	A,13
+00C8: D301    		OUT	(CONDAT),A
+00CA: 3E0A    		LD	A,10
+00CC: D301    		OUT	(CONDAT),A
+              	
+00CE: 218000  		LD	HL,ERRMSG	;print error message
+00D1: 7E      	PRTMSG:	LD	A,(HL)
+00D2: B7      		OR	A
+00D3: CADC00  		JP	Z,STOP
+00D6: D301    		OUT	(CONDAT),A
+00D8: 23      		INC	HL
+00D9: C3D100  		JP	PRTMSG
+00DC: F3      	STOP:	DI
+00DD: 76      		HALT			;and halt cpu
+              	;
+              		END			;of boot loader
+
+
+total time: 0.0010 sec.
+no errors

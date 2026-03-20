@@ -3,7 +3,7 @@ ASM_DIR ?= $(PJ_DIR)/tools/zasm
 ASM ?= $(ASM_DIR)/zasm
 ASM_OPTS ?= --opcodes --bin --target=ram --reqcolon
 
-all: emubasic.inc
+all: emubasic.inc ipl.inc
 
 %.inc: %.asm
 	$(ASM) $(ASM_OPTS) -l $*.lst -o $*.bin $*.asm && \
